@@ -1,5 +1,5 @@
 # 
-FROM python:3.8-slim
+FROM python:3.10-slim
 
 # 
 WORKDIR /code
@@ -14,4 +14,4 @@ RUN pip install --no-cache-dir --upgrade -r /code/requirements.txt
 COPY ./app /code/app
 
 # 
-CMD ["fastapi", "run", "app/main.py", "--port", "80"]
+CMD ["fastapi", "run", "app/main.py", "--port", "6666"]
