@@ -1,3 +1,4 @@
+import os
 from typing import List
 from typing_extensions import Annotated
 from fastapi import FastAPI, Depends, Query
@@ -7,8 +8,15 @@ from functools import lru_cache
 from app.config import Settings
 import ast
 from app.quantum.teleportation import teleportation_experiment, qbraid_teleportation_experiment
+from prometheus_fastapi_instrumentator import Instrumentator
+from app.utils import PrometheusMiddleware, metrics, setting_otlp
 
 app = FastAPI()
+
+APP_NAME = os.environ.get("APP_NAME", "app")
+
+app.add_middleware(PrometheusMiddleware, app_name=APP_NAME)
+Instrumentator().instrument(app).expose(app)
 
 @lru_cache
 def get_settings():
@@ -17,6 +25,10 @@ def get_settings():
 class Probabilities(BaseModel):
     probabilities: List[int]
 
+
+@app.get("/")
+async def read_root():
+    return {"Hello": "World"}
 
 @app.post("/probabilities/")
 def read_probabilities(body: Probabilities, settings: Annotated[Settings, Depends(get_settings)]):

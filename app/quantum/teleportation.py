@@ -68,9 +68,6 @@ def qbraid_teleportation_experiment(N):
     # Generate the Qiskit circuit
     qiskit_circuit = generate_teleportation_circuit()
     
-    # Convert Qiskit circuit to qBraid circuit
-    # qbraid_circuit = qbraid_transpile(qiskit_circuit, "cirq")
-    
     # Set up qBraid provider and backend
     # print(api_key)
     # print(qbraid_circuit)

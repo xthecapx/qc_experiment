@@ -1,14 +1,68 @@
-version: '1.0.0'
-
 services:
   web:
     build: .
-    ports:
-      - "8000:6666"
+    command: uvicorn app.main:app --reload --workers 1 --host 0.0.0.0 --port 6666
     volumes:
       - ./app:/code/app
       - ./.env:/code/.env
+    ports:
+      - "8002:6666"
     environment:
+      - DATABASE_URL=postgresql://hello_fastapi:hello_f
       - ENVIRONMENT=development
       - QBRAID_API_KEY=${QBRAID_API_KEY}
-    command: uvicorn app.main:app --host 0.0.0.0 --port 6666 --reload
+      - APP_NAME="web"
+    depends_on:
+      - db
+  db:
+    image: postgres:13.1-alpine
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/
+    environment:
+      - POSTGRES_USER=hello_fastapi
+      - POSTGRES_PASSWORD=hello_fastapi
+      - POSTGRES_DB=hello_fastapi_dev
+
+    ports:
+      - "5432:5432"
+
+  prometheus:
+    image: prom/prometheus
+    container_name: prometheus
+    ports:
+      - 9090:9090
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yaml'
+    volumes:
+      - ./config/prometheus.yaml:/etc/prometheus/prometheus.yaml:ro
+      - ./data:/prometheus
+    restart: unless-stopped
+
+
+  grafana:
+    image: grafana/grafana
+    container_name: grafana
+    ports:
+      - 3000:3000
+    volumes:
+      - grafana_data:/var/lib/grafana
+    restart: unless-stopped
+
+volumes:
+  prometheus_data:
+    driver: local
+    driver_opts:
+      o: bind
+      type: none
+      device: ./prometheus_data
+  grafana_data:
+    driver: local
+    driver_opts:
+      o: bind
+      type: none
+      device: ./grafana_data
+  postgres_data:
+
+networks:
+  default: 
+    name: hello_fastapi
