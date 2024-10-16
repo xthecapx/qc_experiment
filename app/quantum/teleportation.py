@@ -7,13 +7,13 @@ import numpy as np
 from qbraid.transpiler import transpile as qbraid_transpile
 from qbraid.runtime import QbraidProvider
 
-def generate_teleportation_circuit():
+def generate_teleportation_circuit(num_gates):
     # Create teleportation circuit
     qc = QuantumCircuit(3, 3)
     
     # Apply random U gate to the first qubit
     payload = Payload()
-    qc = payload.add_random_gate(qc)
+    qc = payload.add_random_gates(qc, num_gates)
     
     # Create Bell pair
     qc.h(1)
@@ -34,17 +34,17 @@ def generate_teleportation_circuit():
 
     return qc, payload
 
-def teleportation_experiment(N):
-    qc, payload = generate_teleportation_circuit()
+def teleportation_experiment(shots, num_gates):
+    qc, payload = generate_teleportation_circuit(num_gates)
 
     # display(qc.draw())
     simulator = AerSimulator()
-    job = simulator.run(qc, shots=N)
+    job = simulator.run(qc, shots=shots)
     result = job.result()
     
     # Analyze results
     counts = marginal_counts(result.get_counts(), [2])
-    success_rate = counts.get('0', 0) / N
+    success_rate = counts.get('0', 0) / shots
 
     counts = result.get_counts(qc)
     # display(plot_histogram(counts, title='Bell-State counts'))
@@ -55,7 +55,7 @@ def qbraid_teleportation_experiment(N):
     # Generate the Qiskit circuit
     # calcular la cantidad de qubits, y ver como cambian los resultados al aumentar la complejidad de las compuertas
     qiskit_circuit = generate_teleportation_circuit()
-    
+
     # Set up qBraid provider and backend
     # print(api_key)
     # print(qbraid_circuit)

@@ -13,6 +13,12 @@ class Payload:
 
         return theta, phi, lambda_
     
+    def add_random_gates(self, qc, num_gates):
+        for _ in range(num_gates):
+            self.add_random_gate(qc)
+
+        return qc
+
     def add_random_gate(self, qc):
         random_gate = random.choice(self.gate_types)
         self.add_gate(qc, random_gate)
