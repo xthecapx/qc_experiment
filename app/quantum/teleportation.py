@@ -49,7 +49,7 @@ def teleportation_experiment(shots, num_gates):
     counts = result.get_counts(qc)
     # display(plot_histogram(counts, title='Bell-State counts'))
 
-    return success_rate, counts, payload.gates
+    return success_rate, counts, payload.gates, qc.depth()
 
 def qbraid_teleportation_experiment(N):
     # Generate the Qiskit circuit

@@ -9,6 +9,7 @@ qiskit-ibm-runtime==0.30.0
 requests==2.32.3
 qbraid==0.8.3
 prometheus-fastapi-instrumentator==7.0.0
+prometheus-client
 opentelemetry-distro==0.45b0
 opentelemetry-instrumentation-fastapi==0.45b0
 opentelemetry-instrumentation-logging==0.45b0

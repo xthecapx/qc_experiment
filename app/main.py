@@ -10,6 +10,12 @@ import ast
 from app.quantum.teleportation import teleportation_experiment, qbraid_teleportation_experiment
 from prometheus_fastapi_instrumentator import Instrumentator
 from app.utils import PrometheusMiddleware, metrics, setting_otlp
+from prometheus_client import Gauge
+
+teleportation_success_rate = Gauge('teleportation_success_rate', 'Success rate of teleportation experiment', ['executions', 'num_gates', 'depth'])
+teleportation_executions = Gauge('teleportation_executions', 'Number of executions for teleportation experiment')
+teleportation_num_gates = Gauge('teleportation_num_gates', 'Number of gates in teleportation circuit')
+teleportation_circuit_depth = Gauge('teleportation_circuit_depth', 'Depth of the teleportation circuit')
 
 app = FastAPI()
 
@@ -74,12 +80,18 @@ def execute_teleportation(
     if num_gates < 1:
         raise ValueError("Number of gates must be at least 1")
 
-    success_rate, counts, payload = teleportation_experiment(executions, num_gates)
+    success_rate, counts, payload, depth = teleportation_experiment(executions, num_gates)
+
+    teleportation_success_rate.labels(executions=executions, num_gates=num_gates, depth=depth).set(success_rate)
+    teleportation_executions.set(executions)
+    teleportation_num_gates.set(num_gates)
+    teleportation_circuit_depth.set(depth)
     
     return {
         "success_rate": success_rate,
         "counts": counts,
-        "payload": payload
+        "depth": depth,
+        "payload": payload,
     }
 
 @app.get("/qbraid-teleportation/")
