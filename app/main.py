@@ -69,11 +69,12 @@ def execute_teleportation(executions: int = Query(..., description="Number of ex
     if executions <= 0:
         raise ValueError("Number of executions must be a positive integer")
 
-    success_rate, counts = teleportation_experiment(executions)
+    success_rate, counts, payload = teleportation_experiment(executions)
     
     return {
         "success_rate": success_rate,
-        "counts": counts
+        "counts": counts,
+        "payload": payload
     }
 
 @app.get("/qbraid-teleportation/")
