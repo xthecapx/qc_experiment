@@ -103,9 +103,11 @@ def execute_qbraid_teleportation(
         raise ValueError("Number of executions must be a positive integer")
 
     # Pass the API key from settings to the experiment function
-    success_rate, counts = qbraid_teleportation_experiment(executions)
+    success_rate, counts, payload, depth = qbraid_teleportation_experiment(executions)
     
     return {
         "success_rate": success_rate,
-        "counts": counts
+        "counts": counts,
+        "depth": depth,
+        "payload": payload
     }
