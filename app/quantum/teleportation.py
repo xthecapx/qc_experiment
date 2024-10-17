@@ -69,11 +69,11 @@ def qbraid_teleportation_experiment(N):
     # Run the simulation
     # run_input = [qiskit_circuit]
 
-    jobs = device.run(qiskit_circuit, shots=N)
-    results = [job.result() for job in jobs]
+    job = device.run(qiskit_circuit, shots=N)
+    result = job.result()
     
     # Analyze results
-    counts = results[0].raw_counts()
+    counts = result.data.get_counts()
     print(counts)
     success_rate = 100
     
