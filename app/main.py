@@ -73,14 +73,15 @@ def execute_simulator(probabilities: str = Query(..., description="List of proba
 @app.get("/teleportation/")
 def execute_teleportation(
     executions: int = Query(..., description="Number of executions for the teleportation experiment"),
-    num_gates: int = Query(1, description="Number of gates in the teleportation circuit")
+    num_gates: int = Query(1, description="Number of gates in the teleportation circuit"),
+    num_payload_qubits: int = Query(1, description="Number of payload qubits to teleport")
 ):
     if executions <= 0:
         raise ValueError("Number of executions must be a positive integer")
     if num_gates < 1:
         raise ValueError("Number of gates must be at least 1")
 
-    success_rate, counts, payload, depth = teleportation_experiment(executions, num_gates)
+    success_rate, counts, payload, depth = teleportation_experiment(shots=executions, num_gates=num_gates, num_payload_qubits=num_payload_qubits)
 
     teleportation_success_rate.labels(executions=executions, num_gates=num_gates, depth=depth).set(success_rate)
     teleportation_executions.set(executions)
