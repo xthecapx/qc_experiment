@@ -175,6 +175,46 @@ class TeleportationValidator:
         counts = self.simulate()
         return plot_histogram(counts)
 
+    def get_metrics(self):
+        # Get simulation results
+        counts = self.simulate()
+        
+        # Results-based metrics
+        results_metrics = {
+            "counts": counts,
+            "success_rate": counts.get('0' * self.payload_size, 0) / sum(counts.values()),
+        }
+        
+        # Circuit metrics from Qiskit
+        circuit_metrics = {
+            "depth": self.circuit.depth(),
+            "width": self.circuit.width(),  # Added width
+            "size": self.circuit.size(),
+            "count_ops": self.circuit.count_ops(),  # Added operation count by type
+        }
+        
+        # Configuration metrics
+        config_metrics = {
+            "payload_size": self.payload_size,
+            "num_gates": self.num_gates,
+        }
+        
+        # Custom gate distribution from our tracking
+        gate_distribution = {}
+        for qubit_gates in self.gates.values():
+            if isinstance(qubit_gates, list):
+                for gate in qubit_gates:
+                    gate_distribution[gate.name] = gate_distribution.get(gate.name, 0) + 1
+            else:
+                gate_distribution[gate.name] = gate_distribution.get(gate.name, 0) + 1
+        
+        return {
+            "results_metrics": results_metrics,
+            "circuit_metrics": circuit_metrics,
+            "config_metrics": config_metrics,
+            "custom_gate_distribution": gate_distribution
+        }
+
 
 # Usage example:
 if __name__ == "__main__":

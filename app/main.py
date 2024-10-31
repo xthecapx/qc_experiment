@@ -11,6 +11,7 @@ from app.quantum.teleportation import teleportation_experiment, qbraid_teleporta
 from prometheus_fastapi_instrumentator import Instrumentator
 from app.utils import PrometheusMiddleware, metrics, setting_otlp
 from prometheus_client import Gauge
+from app.quantum.teleportation_antiteleportation import TeleportationValidator
 
 teleportation_success_rate = Gauge('teleportation_success_rate', 'Success rate of teleportation experiment', ['executions', 'num_gates', 'depth'])
 teleportation_executions = Gauge('teleportation_executions', 'Number of executions for teleportation experiment')
@@ -72,27 +73,42 @@ def execute_simulator(probabilities: str = Query(..., description="List of proba
 
 @app.get("/teleportation/")
 def execute_teleportation(
-    executions: int = Query(..., description="Number of executions for the teleportation experiment"),
     num_gates: int = Query(1, description="Number of gates in the teleportation circuit"),
     num_payload_qubits: int = Query(1, description="Number of payload qubits to teleport")
 ):
-    if executions <= 0:
-        raise ValueError("Number of executions must be a positive integer")
     if num_gates < 1:
         raise ValueError("Number of gates must be at least 1")
+    if num_payload_qubits < 1:
+        raise ValueError("Number of payload qubits must be at least 1")
 
-    success_rate, counts, payload, depth = teleportation_experiment(shots=executions, num_gates=num_gates, num_payload_qubits=num_payload_qubits)
-
-    teleportation_success_rate.labels(executions=executions, num_gates=num_gates, depth=depth).set(success_rate)
-    teleportation_executions.set(executions)
+    # Create validator with specified parameters
+    validator = TeleportationValidator(payload_size=num_payload_qubits, num_gates=num_gates)
+    
+    # Get metrics from the simulation
+    metrics = validator.get_metrics()
+    
+    # Update Prometheus metrics
+    teleportation_success_rate.labels(
+        executions=1,  # Default to 1 since we're not using executions
+        num_gates=num_gates,
+        depth=metrics["circuit_metrics"]["depth"]
+    ).set(metrics["results_metrics"]["success_rate"])
     teleportation_num_gates.set(num_gates)
-    teleportation_circuit_depth.set(depth)
+    teleportation_circuit_depth.set(metrics["circuit_metrics"]["depth"])
     
     return {
-        "success_rate": success_rate,
-        "counts": counts,
-        "depth": depth,
-        "payload": payload,
+        "results_metrics": {
+            "success_rate": metrics["results_metrics"]["success_rate"],
+            "counts": metrics["results_metrics"]["counts"],
+        },
+        "circuit_metrics": {
+            "depth": metrics["circuit_metrics"]["depth"],
+            "width": metrics["circuit_metrics"]["width"],
+            "size": metrics["circuit_metrics"]["size"],
+            "count_ops": metrics["circuit_metrics"]["count_ops"],
+        },
+        "config_metrics": metrics["config_metrics"],
+        "custom_gate_distribution": metrics["custom_gate_distribution"]
     }
 
 @app.get("/qbraid-teleportation/")
