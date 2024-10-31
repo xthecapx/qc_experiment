@@ -59,7 +59,6 @@ class TeleportationProtocol:
     def draw(self):
         return self.circuit.draw(output='mpl')
 
-
 class TeleportationValidator:
     def __init__(self, payload_size: int = 3, num_gates: int = 1):
         self.gates = {}
@@ -126,30 +125,40 @@ class TeleportationValidator:
         return circuit
 
     def _create_payload(self, circuit: QuantumCircuit):
-        # First apply the basic operations to all qubits
+        # Apply initial operations to all qubits
         for qubit in self.auxiliary_qubits:
             circuit.h(qubit)
             circuit.cx(qubit, self.protocol.message_qubit)
-            self._add_random_gate(circuit, qubit)
         
-        # Add extra gates if num_gates > payload_size
-        remaining_gates = self.num_gates - self.payload_size
-        if remaining_gates > 0:
-            # Apply remaining gates to the last qubit
-            last_qubit = self.auxiliary_qubits[-1]
-            for _ in range(remaining_gates):
-                self._add_random_gate(circuit, last_qubit)
+        # Ensure each qubit gets at least one gate
+        gates_per_qubit = self.num_gates // self.payload_size
+        remaining_gates = self.num_gates % self.payload_size
+        
+        # First, distribute gates evenly
+        for qubit in self.auxiliary_qubits:
+            for _ in range(gates_per_qubit):
+                self._add_random_gate(circuit, qubit)
+        
+        # Then distribute remaining gates randomly
+        if remaining_gates:
+            selected_qubits = random.sample(list(self.auxiliary_qubits), remaining_gates)
+            for qubit in selected_qubits:
+                self._add_random_gate(circuit, qubit)
 
     def _create_validation(self, circuit: QuantumCircuit):
         for qubit in reversed(self.auxiliary_qubits):
-            # Apply conjugates in reverse order if multiple gates were applied
-            gates = self.gates[qubit]
-            if isinstance(gates, list):
-                for gate in reversed(gates):
-                    gate.apply_conjugate(circuit, qubit)
-            else:
-                gates.apply_conjugate(circuit, qubit)
+            # Get gates for this qubit if any were applied
+            if qubit in self.gates:
+                gates = self.gates[qubit]
+                if isinstance(gates, list):
+                    # Apply conjugates of all gates in reverse order
+                    for gate in reversed(gates):
+                        gate.apply_conjugate(circuit, qubit)
+                else:
+                    # Single gate case
+                    gates.apply_conjugate(circuit, qubit)
             
+            # Apply the inverse of the initial operations
             circuit.cx(qubit, self.protocol.bob_entangled)
             circuit.h(qubit)
 
