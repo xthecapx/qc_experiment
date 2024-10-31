@@ -4,8 +4,6 @@ import random
 
 class Payload:
     def __init__(self, num_payload_qubits):
-        self.unitary = None
-        self.inverse_unitary = None
         self.num_payload_qubits = num_payload_qubits
         self.gates = []
         self.gate_types = ['u', 'x', 'y', 'z']
@@ -18,14 +16,8 @@ class Payload:
         return theta, phi, lambda_
     
     def add_random_gates(self, qc, num_gates):
-        if (self.num_payload_qubits > 0):
-            self.entangle_payload(qc)
-
         for _ in range(num_gates):
             self.add_random_gate(qc)
-
-        self.unitary = Operator.from_circuit(qc)
-        self.inverse_unitary = Operator.from_circuit(qc.inverse())
 
         return qc
 
@@ -70,11 +62,4 @@ class Payload:
                 qc.z(measure_qbit)
 
         return qc
-    
-    def entangle_payload(self, qc):
-        for i in range(self.num_payload_qubits):
-            qc.h(i)
-        for i in range(self.num_payload_qubits - 1):
-            qc.cx(i, i + 1)
-        qc.cx(self.num_payload_qubits - 1, self.num_payload_qubits)
-        return qc
+
