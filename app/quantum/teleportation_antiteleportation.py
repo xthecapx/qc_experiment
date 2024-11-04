@@ -1,9 +1,7 @@
 from qiskit import QuantumCircuit, QuantumRegister, ClassicalRegister
 from qiskit_aer import AerSimulator
 from qiskit.visualization import plot_histogram
-from qiskit.result import marginal_counts
 import numpy as np
-from app.quantum.payload import Payload
 import random
 
 class QuantumGate:
@@ -60,10 +58,12 @@ class TeleportationProtocol:
         return self.circuit.draw(output='mpl')
 
 class TeleportationValidator:
-    def __init__(self, payload_size: int = 3, num_gates: int = 1):
+    def __init__(self, payload_size: int = 3, num_gates: int = 1, gates: list = None, random_gates: bool = False):
         self.gates = {}
         self.payload_size = payload_size
         self.num_gates = num_gates
+        self.random_gates = random_gates
+        self.input_gates = gates or []
         self.gate_types = {
             'u': lambda: QuantumGate('u', self._generate_random_u_params()),
             'x': lambda: QuantumGate('x'),
@@ -74,7 +74,7 @@ class TeleportationValidator:
         self.auxiliary_qubits = QuantumRegister(payload_size, "R")
         self.protocol = TeleportationProtocol()
         self.result = ClassicalRegister(payload_size, "Test result")
-        self.payload = Payload(payload_size)
+        # self.payload = Payload(payload_size)
         self.circuit = self._create_test_circuit()
 
     def _generate_random_u_params(self):
@@ -130,20 +130,61 @@ class TeleportationValidator:
             circuit.h(qubit)
             circuit.cx(qubit, self.protocol.message_qubit)
         
-        # Ensure each qubit gets at least one gate
+        if self.random_gates:
+            self._apply_random_gates(circuit)
+        elif self.input_gates:
+            self._apply_input_gates(circuit)
+        else:
+            self._apply_single_gate_type(circuit)
+
+    def _apply_random_gates(self, circuit: QuantumCircuit):
+        # Original random gates logic
         gates_per_qubit = self.num_gates // self.payload_size
         remaining_gates = self.num_gates % self.payload_size
         
-        # First, distribute gates evenly
         for qubit in self.auxiliary_qubits:
             for _ in range(gates_per_qubit):
                 self._add_random_gate(circuit, qubit)
         
-        # Then distribute remaining gates randomly
         if remaining_gates:
             selected_qubits = random.sample(list(self.auxiliary_qubits), remaining_gates)
             for qubit in selected_qubits:
                 self._add_random_gate(circuit, qubit)
+
+    def _apply_input_gates(self, circuit: QuantumCircuit):
+        gates_per_qubit = self.num_gates // self.payload_size
+        remaining_gates = self.num_gates % self.payload_size
+        
+        for qubit in self.auxiliary_qubits:
+            for _ in range(gates_per_qubit):
+                for gate_name in self.input_gates:
+                    if gate_name in self.gate_types:
+                        gate = self.gate_types[gate_name]()
+                        if qubit in self.gates:
+                            if isinstance(self.gates[qubit], list):
+                                self.gates[qubit].append(gate)
+                            else:
+                                self.gates[qubit] = [self.gates[qubit], gate]
+                        else:
+                            self.gates[qubit] = gate
+                        gate.apply(circuit, qubit)
+
+    def _apply_single_gate_type(self, circuit: QuantumCircuit):
+        # Apply the same gate num_gates times
+        gate = self.gate_types['x']()  # Default to X gate if no gates specified
+        gates_per_qubit = self.num_gates // self.payload_size
+        remaining_gates = self.num_gates % self.payload_size
+        
+        for qubit in self.auxiliary_qubits:
+            for _ in range(gates_per_qubit):
+                if qubit in self.gates:
+                    if isinstance(self.gates[qubit], list):
+                        self.gates[qubit].append(gate)
+                    else:
+                        self.gates[qubit] = [self.gates[qubit], gate]
+                else:
+                    self.gates[qubit] = gate
+                gate.apply(circuit, qubit)
 
     def _create_validation(self, circuit: QuantumCircuit):
         for qubit in reversed(self.auxiliary_qubits):
@@ -188,9 +229,9 @@ class TeleportationValidator:
         # Circuit metrics from Qiskit
         circuit_metrics = {
             "depth": self.circuit.depth(),
-            "width": self.circuit.width(),  # Added width
+            "width": self.circuit.width(),
             "size": self.circuit.size(),
-            "count_ops": self.circuit.count_ops(),  # Added operation count by type
+            "count_ops": self.circuit.count_ops(),
         }
         
         # Configuration metrics
@@ -206,7 +247,8 @@ class TeleportationValidator:
                 for gate in qubit_gates:
                     gate_distribution[gate.name] = gate_distribution.get(gate.name, 0) + 1
             else:
-                gate_distribution[gate.name] = gate_distribution.get(gate.name, 0) + 1
+                # Single gate case
+                gate_distribution[qubit_gates.name] = gate_distribution.get(qubit_gates.name, 0) + 1
         
         return {
             "results_metrics": results_metrics,
