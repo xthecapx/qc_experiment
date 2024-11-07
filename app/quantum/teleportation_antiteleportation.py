@@ -108,6 +108,7 @@ class TeleportationValidator:
         )
 
         self._create_payload(circuit)
+        circuit.save_statevector(label='payload')
         circuit.barrier()
 
         circuit = circuit.compose(
@@ -116,7 +117,9 @@ class TeleportationValidator:
         )
         circuit.barrier()
 
+        circuit.save_statevector(label='after')
         self._create_validation(circuit)
+        circuit.save_statevector(label='validation')
         circuit.barrier()
 
         circuit.add_register(self.result)

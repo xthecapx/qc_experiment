@@ -1,7 +1,7 @@
 import os
 from typing import List
 from typing_extensions import Annotated
-from fastapi import FastAPI, Depends, Query
+from fastapi import FastAPI, Depends, Query, Path
 from pydantic import BaseModel
 from app.quantum.simulator import setup_simulator
 from functools import lru_cache
@@ -12,6 +12,8 @@ from prometheus_fastapi_instrumentator import Instrumentator
 from app.utils import PrometheusMiddleware, metrics, setting_otlp
 from prometheus_client import Gauge
 from app.quantum.teleportation_antiteleportation import TeleportationValidator
+from enum import Enum
+from app.quantum.teleportation_gate_fidelity import GateFidelity, QbraidDevice
 
 teleportation_success_rate = Gauge('teleportation_success_rate', 'Success rate of teleportation experiment', ['executions', 'num_gates', 'depth'])
 teleportation_executions = Gauge('teleportation_executions', 'Number of executions for teleportation experiment')
@@ -124,4 +126,46 @@ def execute_qbraid_teleportation(
     return {
         "success_rate": success_rate,
         "counts": counts
+    }
+
+class GateType(str, Enum):
+    S = "s"
+    SDG = "sdg"
+    T = "t"
+    TDG = "tdg"
+    Z = "z"
+    H = "h"
+
+@app.post("/gate-fidelity/")
+def run_gate_fidelity(
+    pre_gate: GateType = Query(GateType.S, description="Gate to apply before teleportation"),
+    post_gate: GateType = Query(GateType.SDG, description="Gate to apply after teleportation"),
+    device: QbraidDevice = Query(QbraidDevice.QIR, description="QBraid device to run the simulation on"),
+    use_qbraid: bool = Query(False, description="Whether to use QBraid for simulation")
+):
+    fidelity_test = GateFidelity()
+    
+    if use_qbraid:
+        counts, circuit = fidelity_test.run_qbraid(
+            device=device,
+            pre_gate=pre_gate.value,
+            post_gate=post_gate.value
+        )
+    else:
+        counts, circuit = fidelity_test.run_simulation(
+            pre_gate=pre_gate.value,
+            post_gate=post_gate.value
+        )
+    
+    circuit_str = circuit.draw(output='text').single_string()
+    
+    return {
+        "counts": counts,
+        "circuit": circuit_str,
+        "configuration": {
+            "pre_gate": pre_gate.value,
+            "post_gate": post_gate.value,
+            "device": device.value if use_qbraid else "local_simulator",
+            "simulator": "qbraid" if use_qbraid else "aer"
+        }
     }
