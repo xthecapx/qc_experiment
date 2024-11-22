@@ -14,6 +14,7 @@ from prometheus_client import Gauge
 from app.quantum.teleportation_antiteleportation import TeleportationValidator
 from enum import Enum
 from app.quantum.teleportation_gate_fidelity import GateFidelity, QbraidDevice
+from qiskit_ibm_runtime import QiskitRuntimeService
 
 teleportation_success_rate = Gauge('teleportation_success_rate', 'Success rate of teleportation experiment', ['executions', 'num_gates', 'depth'])
 teleportation_executions = Gauge('teleportation_executions', 'Number of executions for teleportation experiment')
@@ -136,20 +137,33 @@ class GateType(str, Enum):
     Z = "z"
     H = "h"
 
+class SimulatorType(str, Enum):
+    QBRAID = "qbraid"
+    LOCAL = "local"
+    IBM = "ibm"
+
 @app.post("/gate-fidelity/")
 def run_gate_fidelity(
+    settings: Annotated[Settings, Depends(get_settings)],
     pre_gate: GateType = Query(GateType.S, description="Gate to apply before teleportation"),
     post_gate: GateType = Query(GateType.SDG, description="Gate to apply after teleportation"),
     device: QbraidDevice = Query(QbraidDevice.QIR, description="QBraid device to run the simulation on"),
-    use_qbraid: bool = Query(False, description="Whether to use QBraid for simulation")
+    simulator: SimulatorType = Query(SimulatorType.LOCAL, description="Simulator to use: qbraid, local, or ibm")
 ):
     fidelity_test = GateFidelity()
     
-    if use_qbraid:
+    if simulator == SimulatorType.QBRAID:
         counts, circuit = fidelity_test.run_qbraid(
             device=device,
             pre_gate=pre_gate.value,
             post_gate=post_gate.value
+        )
+    elif simulator == SimulatorType.IBM:
+        counts, circuit = fidelity_test.run_ibm(
+            channel='ibm_quantum',
+            pre_gate=pre_gate.value,
+            post_gate=post_gate.value,
+            token=settings.token
         )
     else:
         counts, circuit = fidelity_test.run_simulation(
@@ -165,7 +179,19 @@ def run_gate_fidelity(
         "configuration": {
             "pre_gate": pre_gate.value,
             "post_gate": post_gate.value,
-            "device": device.value if use_qbraid else "local_simulator",
-            "simulator": "qbraid" if use_qbraid else "aer"
+            "device": device.value if simulator == SimulatorType.QBRAID else "local_simulator",
+            "simulator": "qbraid" if simulator == SimulatorType.QBRAID else "aer"
         }
     }
+
+@app.get("/results/")
+def get_results(
+    settings: Annotated[Settings, Depends(get_settings)]
+):
+    service = QiskitRuntimeService(
+        channel='ibm_quantum',
+        instance='ibm-q/open/main',
+        token=settings.token
+    )
+    job = service.job('cwzt185z326g008qpbm0')
+    job_result = job.result()
