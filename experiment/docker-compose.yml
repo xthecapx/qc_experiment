@@ -1,0 +1,15 @@
+services:
+  mit-iquhack:
+    image: jupyter/datascience-notebook
+    restart: always
+    build:
+      context: .
+    ports:
+      - "4321:4321"
+    volumes:
+      - .:/home/jovyan/work
+    environment:
+      - JUPYTER_ENABLE_LAB=yes
+      - JUPYTER_PORT=4321
+      - PYTHONPATH=/home/jovyan/work
+      - JUPYTER_ENABLE_AUTORELOAD=yes
