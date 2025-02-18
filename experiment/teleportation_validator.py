@@ -493,6 +493,86 @@ class Experiments:
         
         return experiment_results
 
+    def run_dynamic_payload_gates(self, payload_range: tuple, gates_range: tuple,
+                                run_on_ibm: bool = False, channel: str = None, token: str = None):
+        """
+        Runs experiments with custom ranges for both payload size and number of gates.
+        payload_range: tuple of (min_payload, max_payload)
+        gates_range: tuple of (min_gates, max_gates)
+        """
+        experiment_results = []
+        
+        start_payload, end_payload = payload_range
+        start_gates, end_gates = gates_range
+        
+        for payload_size in range(start_payload, end_payload + 1):
+            for num_gates in range(start_gates, end_gates + 1):
+                print(f"\nRunning experiment with payload_size={payload_size} and gates={num_gates}")
+                
+                use_barriers = not run_on_ibm
+                validator = TeleportationValidator(
+                    payload_size=payload_size,
+                    gates=num_gates,
+                    use_barriers=use_barriers
+                )
+                
+                display(validator.draw())
+                
+                # Determine actual execution type based on result
+                execution_type = "simulation"
+                if run_on_ibm and channel and token:
+                    ibm_result = validator.run_on_ibm(channel, token)
+                    if ibm_result["status"] == "completed" or ibm_result["status"] == "pending":
+                        execution_type = "ibm"
+                    
+                    results = {
+                        "status": ibm_result["status"],
+                        "circuit_metrics": {
+                            "depth": validator.circuit.depth(),
+                            "width": validator.circuit.width(),
+                            "size": validator.circuit.size(),
+                            "count_ops": validator.circuit.count_ops(),
+                        },
+                        "config_metrics": {
+                            "payload_size": payload_size,
+                        },
+                        "ibm_data": ibm_result
+                    }
+                    
+                    if ibm_result["status"] == "completed":
+                        results["results_metrics"] = {
+                            "counts": ibm_result["counts"],
+                            "success_rate": ibm_result["counts"].get('0' * payload_size, 0) / sum(ibm_result["counts"].values()),
+                        }
+                    elif ibm_result["status"] == "error":
+                        # Fallback to simulation if IBM execution failed
+                        results = validator.run_simulation()
+                        results["status"] = "completed"
+                        results["ibm_error"] = ibm_result.get("error")
+                else:
+                    results = validator.run_simulation()
+                    results["status"] = "completed"
+                
+                results["experiment_params"] = {
+                    "experiment_type": "dynamic_payload_gates",
+                    "payload_size": payload_size,
+                    "num_gates": num_gates,
+                    "execution_type": execution_type
+                }
+                
+                experiment_results.append(results)
+                self.validators.append(validator)
+                print(f"Experiment with payload={payload_size}, gates={num_gates} completed with status: {results['status']}")
+        
+        self.results.append({
+            "name": "dynamic_payload_gates",
+            "experiments": experiment_results,
+            "execution_type": "ibm" if any(r["experiment_params"]["execution_type"] == "ibm" 
+                                         for r in experiment_results) else "simulation"
+        })
+        
+        return experiment_results
+
     def plot_success_rates(self, experiment_name: str = None):
         """
         Plots success rates for experiments
