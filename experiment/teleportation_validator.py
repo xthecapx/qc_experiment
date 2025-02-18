@@ -64,12 +64,9 @@ class TeleportationProtocol:
         return self.circuit.draw(output='mpl')
 
 class TeleportationValidator:
-    def __init__(self, payload_size: int = 3, num_gates: int = 1, gates: list = None, random_gates: bool = False, use_barriers: bool = True):
+    def __init__(self, payload_size: int = 3, gates: list | int = None, use_barriers: bool = True):
         self.gates = {}
         self.payload_size = payload_size
-        self.num_gates = num_gates
-        self.random_gates = random_gates
-        self.input_gates = gates or []
         self.use_barriers = use_barriers
         self.gate_types = {
             'u': lambda: QuantumGate('u', self._generate_random_u_params()),
@@ -78,10 +75,19 @@ class TeleportationValidator:
             's': lambda: QuantumGate('s'),
             't': lambda: QuantumGate('t')
         }
+        
+        # Handle gates parameter
+        if isinstance(gates, int):
+            # Generate random gates if gates is a number
+            available_gates = list(self.gate_types.keys())
+            self.input_gates = [random.choice(available_gates) for _ in range(gates)]
+        else:
+            # Use provided gates list or empty list if None
+            self.input_gates = gates or []
+        
         self.auxiliary_qubits = QuantumRegister(payload_size, "R")
         self.protocol = TeleportationProtocol(use_barriers=use_barriers)
         self.result = ClassicalRegister(payload_size, "test_result")
-        # self.payload = Payload(payload_size)
         self.circuit = self._create_test_circuit()
 
     def _generate_random_u_params(self):
@@ -135,65 +141,40 @@ class TeleportationValidator:
         return circuit
 
     def _create_payload(self, circuit: QuantumCircuit):
-        # Apply initial operations to all qubits
+        # First apply initial operations to all qubits
         for qubit in self.auxiliary_qubits:
             circuit.h(qubit)
             circuit.cx(qubit, self.protocol.message_qubit)
         
-        if self.random_gates:
-            self._apply_random_gates(circuit)
-        elif self.input_gates:
-            self._apply_input_gates(circuit)
+        if self.input_gates:
+            # Calculate gates per qubit
+            gates_per_qubit = len(self.input_gates) // self.payload_size
+            remaining_gates = len(self.input_gates) % self.payload_size
+            
+            # Distribute gates across qubits
+            gate_index = 0
+            for i, qubit in enumerate(self.auxiliary_qubits):
+                # Calculate how many gates this qubit should get
+                num_gates = gates_per_qubit + (1 if i < remaining_gates else 0)
+                
+                # Apply the gates assigned to this qubit
+                qubit_gates = []
+                for _ in range(num_gates):
+                    if gate_index < len(self.input_gates):
+                        gate_name = self.input_gates[gate_index]
+                        if gate_name in self.gate_types:
+                            gate = self.gate_types[gate_name]()
+                            qubit_gates.append(gate)
+                            gate.apply(circuit, qubit)
+                        gate_index += 1
+                
+                if qubit_gates:
+                    self.gates[qubit] = qubit_gates if len(qubit_gates) > 1 else qubit_gates[0]
         else:
-            self._apply_single_gate_type(circuit)
-
-    def _apply_random_gates(self, circuit: QuantumCircuit):
-        # Original random gates logic
-        gates_per_qubit = self.num_gates // self.payload_size
-        remaining_gates = self.num_gates % self.payload_size
-        
-        for qubit in self.auxiliary_qubits:
-            for _ in range(gates_per_qubit):
-                self._add_random_gate(circuit, qubit)
-        
-        if remaining_gates:
-            selected_qubits = random.sample(list(self.auxiliary_qubits), remaining_gates)
-            for qubit in selected_qubits:
-                self._add_random_gate(circuit, qubit)
-
-    def _apply_input_gates(self, circuit: QuantumCircuit):
-        gates_per_qubit = self.num_gates // self.payload_size
-        remaining_gates = self.num_gates % self.payload_size
-        
-        for qubit in self.auxiliary_qubits:
-            for _ in range(gates_per_qubit):
-                for gate_name in self.input_gates:
-                    if gate_name in self.gate_types:
-                        gate = self.gate_types[gate_name]()
-                        if qubit in self.gates:
-                            if isinstance(self.gates[qubit], list):
-                                self.gates[qubit].append(gate)
-                            else:
-                                self.gates[qubit] = [self.gates[qubit], gate]
-                        else:
-                            self.gates[qubit] = gate
-                        gate.apply(circuit, qubit)
-
-    def _apply_single_gate_type(self, circuit: QuantumCircuit):
-        # Apply the same gate num_gates times
-        gate = self.gate_types['x']()  # Default to X gate if no gates specified
-        gates_per_qubit = self.num_gates // self.payload_size
-        remaining_gates = self.num_gates % self.payload_size
-        
-        for qubit in self.auxiliary_qubits:
-            for _ in range(gates_per_qubit):
-                if qubit in self.gates:
-                    if isinstance(self.gates[qubit], list):
-                        self.gates[qubit].append(gate)
-                    else:
-                        self.gates[qubit] = [self.gates[qubit], gate]
-                else:
-                    self.gates[qubit] = gate
+            # Apply default X gate to each qubit
+            for qubit in self.auxiliary_qubits:
+                gate = self.gate_types['x']()
+                self.gates[qubit] = gate
                 gate.apply(circuit, qubit)
 
     def _create_validation(self, circuit: QuantumCircuit):
@@ -216,16 +197,53 @@ class TeleportationValidator:
     def draw(self):
         return self.circuit.draw(output='mpl')
 
-    def simulate(self):
+    def _simulate(self):
         simulator = AerSimulator()
         result = simulator.run(self.circuit).result()
         counts = result.get_counts()
         return counts
-
-    def plot_results(self):
-        counts = self.simulate()
-        return plot_histogram(counts)
     
+    def run_simulation(self):
+        # Get simulation results
+        counts = self._simulate()
+        
+        # Results-based metrics
+        results_metrics = {
+            "counts": counts,
+            "success_rate": counts.get('0' * self.payload_size, 0) / sum(counts.values()),
+        }
+        
+        # Circuit metrics from Qiskit
+        circuit_metrics = {
+            "depth": self.circuit.depth(),
+            "width": self.circuit.width(),
+            "size": self.circuit.size(),
+            "count_ops": self.circuit.count_ops(),
+        }
+        
+        # Configuration metrics
+        config_metrics = {
+            "payload_size": self.payload_size,
+        }
+        
+        # Custom gate distribution from our tracking
+        gate_distribution = {}
+        for qubit_gates in self.gates.values():
+            if isinstance(qubit_gates, list):
+                for gate in qubit_gates:
+                    gate_distribution[gate.name] = gate_distribution.get(gate.name, 0) + 1
+            else:
+                # Single gate case
+                gate_distribution[qubit_gates.name] = gate_distribution.get(qubit_gates.name, 0) + 1
+        
+        display(plot_histogram(counts))
+        return {
+            "results_metrics": results_metrics,
+            "circuit_metrics": circuit_metrics,
+            "config_metrics": config_metrics,
+            "custom_gate_distribution": gate_distribution
+        }
+
     def run_on_ibm(self, channel, token):
         try:
             QiskitRuntimeService.save_account(
@@ -268,7 +286,7 @@ class TeleportationValidator:
             print(f"An error occurred: {e}")
             return 0, self.circuit
         
-    def get_job_results(self, job_id, token):
+    def get_ibm_job_results(self, job_id, token):
         # Get job results from the service
         service = QiskitRuntimeService(
             channel='ibm_quantum',
@@ -310,55 +328,136 @@ class TeleportationValidator:
             "job_result": job_result  # Include the full job result for additional analysis if needed
         }
 
-    def get_simulation_metrics(self):
-        # Get simulation results
-        counts = self.simulate()
+class Experiments:
+    def __init__(self):
+        self.results = []
+        self.validators = []  # Keep track of validators for later analysis
         
-        # Results-based metrics
-        results_metrics = {
-            "counts": counts,
-            "success_rate": counts.get('0' * self.payload_size, 0) / sum(counts.values()),
-        }
+    def run_payload_size_gates_correlation(self, start: int = 1, end: int = 10):
+        """
+        Runs experiments increasing both payload_size and gates together.
+        For example: (1,1), (2,2), ..., (10,10)
+        """
+        experiment_results = []
         
-        # Circuit metrics from Qiskit
-        circuit_metrics = {
-            "depth": self.circuit.depth(),
-            "width": self.circuit.width(),
-            "size": self.circuit.size(),
-            "count_ops": self.circuit.count_ops(),
-        }
+        for size in range(start, end + 1):
+            print(f"\nRunning experiment with payload_size={size} and gates={size}")
+            
+            # Create validator
+            validator = TeleportationValidator(
+                payload_size=size,
+                gates=size,  # This will create random gates
+                use_barriers=True
+            )
+            
+            # Draw circuit
+            display(validator.draw())
+            
+            # Run simulation and get results
+            results = validator.run_simulation()
+            
+            # Add experiment parameters to results
+            results["experiment_params"] = {
+                "experiment_type": "payload_size_gates_correlation",
+                "payload_size": size,
+                "num_gates": size
+            }
+            
+            experiment_results.append(results)
+            self.validators.append(validator)
+            print(f"Experiment {size}/{end} completed")
+            
+        self.results.append({
+            "name": "payload_size_gates_correlation",
+            "experiments": experiment_results
+        })
         
-        # Configuration metrics
-        config_metrics = {
-            "payload_size": self.payload_size,
-            "num_gates": self.num_gates,
-        }
+        return experiment_results
+    
+    def run_fixed_payload_varying_gates(self, payload_size: int, start_gates: int = 1, end_gates: int = 10):
+        """
+        Runs experiments with fixed payload_size but increasing number of gates
+        """
+        experiment_results = []
         
-        # Custom gate distribution from our tracking
-        gate_distribution = {}
-        for qubit_gates in self.gates.values():
-            if isinstance(qubit_gates, list):
-                for gate in qubit_gates:
-                    gate_distribution[gate.name] = gate_distribution.get(gate.name, 0) + 1
+        for num_gates in range(start_gates, end_gates + 1):
+            print(f"\nRunning experiment with payload_size={payload_size} and gates={num_gates}")
+            
+            # Create validator
+            validator = TeleportationValidator(
+                payload_size=payload_size,
+                gates=num_gates,
+                use_barriers=True
+            )
+            
+            # Draw circuit
+            display(validator.draw())
+            
+            # Run simulation
+            results = validator.run_simulation()
+            results["experiment_params"] = {
+                "experiment_type": "fixed_payload_varying_gates",
+                "payload_size": payload_size,
+                "num_gates": num_gates
+            }
+            
+            experiment_results.append(results)
+            self.validators.append(validator)
+            print(f"Experiment {num_gates}/{end_gates} completed")
+            
+        self.results.append({
+            "name": "fixed_payload_varying_gates",
+            "experiments": experiment_results
+        })
+        
+        return experiment_results
+    
+    def plot_success_rates(self, experiment_name: str = None):
+        """
+        Plots success rates for experiments
+        """
+        import matplotlib.pyplot as plt
+        
+        # Collect rates directly from results
+        rates = []
+        for experiment_set in self.results:
+            if experiment_name and experiment_set["name"] != experiment_name:
+                continue
+                
+            for experiment in experiment_set["experiments"]:
+                rates.append({
+                    "type": experiment["experiment_params"]["experiment_type"],
+                    "payload_size": experiment["experiment_params"]["payload_size"],
+                    "num_gates": experiment["experiment_params"]["num_gates"],
+                    "success_rate": experiment["results_metrics"]["success_rate"]
+                })
+        
+        if not rates:
+            print("No results to plot")
+            return
+            
+        plt.figure(figsize=(10, 6))
+        
+        # Group by experiment type
+        experiment_types = set(rate["type"] for rate in rates)
+        
+        for exp_type in experiment_types:
+            type_rates = [r for r in rates if r["type"] == exp_type]
+            
+            if exp_type == "payload_size_gates_correlation":
+                x_values = [r["payload_size"] for r in type_rates]
+                label = "Payload Size (= Num Gates)"
             else:
-                # Single gate case
-                gate_distribution[qubit_gates.name] = gate_distribution.get(qubit_gates.name, 0) + 1
-        
-        return {
-            "results_metrics": results_metrics,
-            "circuit_metrics": circuit_metrics,
-            "config_metrics": config_metrics,
-            "custom_gate_distribution": gate_distribution
-        }
-
-
-# # Usage example:
-# if __name__ == "__main__":
-#     # Create and visualize just the teleportation protocol
-#     # protocol = TeleportationProtocol()
-#     # protocol.draw()
-
-#     # Create and run the validation
-#     validator = TeleportationValidator(payload_size=5, num_gates=100)
-#     validator.draw()
-#     validator.plot_results()
+                x_values = [r["num_gates"] for r in type_rates]
+                label = "Number of Gates"
+                
+            y_values = [r["success_rate"] for r in type_rates]
+            
+            plt.plot(x_values, y_values, 'o-', label=exp_type)
+            
+        plt.xlabel(label)
+        plt.ylabel("Success Rate")
+        plt.title("Experiment Success Rates")
+        plt.legend()
+        plt.grid(True)
+        plt.show()
