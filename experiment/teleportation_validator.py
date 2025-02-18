@@ -259,12 +259,13 @@ class TeleportationValidator:
             sampler = Sampler(backend)
             isa_circuit = pm.run(self.circuit)
             job = sampler.run([isa_circuit])
-            print(f">>> Job ID: {job.job_id()}")
+            job_id = job.job_id()
+            print(f">>> Job ID: {job_id}")
             print(f">>> Job Status: {job.status()}")
 
             import time
             start_time = time.time()
-            while time.time() - start_time < 120:  # 2 minutes timeout
+            while time.time() - start_time < 600:  # 10 minutes timeout
                 status = job.status()
                 print(f">>> Job Status: {status}")
                 
@@ -273,18 +274,35 @@ class TeleportationValidator:
                     counts = result[0].data.test_result.get_counts()
                     print(counts)
                     plot_histogram(counts)
-                    return counts, self.circuit
+                    return {
+                        "status": "completed",
+                        "job_id": job_id,
+                        "counts": counts,
+                        "backend": backend.configuration().backend_name
+                    }
                 elif status != 'RUNNING' and status != 'QUEUED':
                     print(f"Job ended with status: {status}")
-                    return 0, self.circuit
+                    return {
+                        "status": "error",
+                        "job_id": job_id,
+                        "error": f"Job ended with status: {status}",
+                        "backend": backend.configuration().backend_name
+                    }
                 
                 time.sleep(5)
 
-            print("Job timed out after 2 minutes")
-            return 0, self.circuit
+            print("Job timed out after 10 minutes")
+            return {
+                "status": "pending",
+                "job_id": job_id,
+                "backend": backend.configuration().backend_name
+            }
         except Exception as e:
             print(f"An error occurred: {e}")
-            return 0, self.circuit
+            return {
+                "status": "error",
+                "error": str(e)
+            }
         
     def get_ibm_job_results(self, job_id, token):
         # Get job results from the service
@@ -331,87 +349,150 @@ class TeleportationValidator:
 class Experiments:
     def __init__(self):
         self.results = []
-        self.validators = []  # Keep track of validators for later analysis
+        self.validators = []
         
-    def run_payload_size_gates_correlation(self, start: int = 1, end: int = 10):
-        """
-        Runs experiments increasing both payload_size and gates together.
-        For example: (1,1), (2,2), ..., (10,10)
-        """
+    def run_payload_size_gates_correlation(self, start: int = 1, end: int = 10, 
+                                         run_on_ibm: bool = False, channel: str = None, token: str = None):
         experiment_results = []
         
         for size in range(start, end + 1):
             print(f"\nRunning experiment with payload_size={size} and gates={size}")
             
-            # Create validator
+            use_barriers = not run_on_ibm
             validator = TeleportationValidator(
                 payload_size=size,
-                gates=size,  # This will create random gates
-                use_barriers=True
+                gates=size,
+                use_barriers=use_barriers
             )
             
-            # Draw circuit
             display(validator.draw())
             
-            # Run simulation and get results
-            results = validator.run_simulation()
+            # Determine actual execution type based on result
+            execution_type = "simulation"
+            if run_on_ibm and channel and token:
+                ibm_result = validator.run_on_ibm(channel, token)
+                if ibm_result["status"] == "completed" or ibm_result["status"] == "pending":
+                    execution_type = "ibm"
+                
+                results = {
+                    "status": ibm_result["status"],
+                    "circuit_metrics": {
+                        "depth": validator.circuit.depth(),
+                        "width": validator.circuit.width(),
+                        "size": validator.circuit.size(),
+                        "count_ops": validator.circuit.count_ops(),
+                    },
+                    "config_metrics": {
+                        "payload_size": size,
+                    },
+                    "ibm_data": ibm_result
+                }
+                
+                if ibm_result["status"] == "completed":
+                    results["results_metrics"] = {
+                        "counts": ibm_result["counts"],
+                        "success_rate": ibm_result["counts"].get('0' * size, 0) / sum(ibm_result["counts"].values()),
+                    }
+                elif ibm_result["status"] == "error":
+                    # Fallback to simulation if IBM execution failed
+                    results = validator.run_simulation()
+                    results["status"] = "completed"
+                    results["ibm_error"] = ibm_result.get("error")
+            else:
+                results = validator.run_simulation()
+                results["status"] = "completed"
             
-            # Add experiment parameters to results
             results["experiment_params"] = {
                 "experiment_type": "payload_size_gates_correlation",
                 "payload_size": size,
-                "num_gates": size
+                "num_gates": size,
+                "execution_type": execution_type
             }
             
             experiment_results.append(results)
             self.validators.append(validator)
-            print(f"Experiment {size}/{end} completed")
-            
+            print(f"Experiment {size}/{end} completed with status: {results['status']}")
+        
         self.results.append({
             "name": "payload_size_gates_correlation",
-            "experiments": experiment_results
+            "experiments": experiment_results,
+            "execution_type": "ibm" if any(r["experiment_params"]["execution_type"] == "ibm" 
+                                         for r in experiment_results) else "simulation"
         })
         
         return experiment_results
     
-    def run_fixed_payload_varying_gates(self, payload_size: int, start_gates: int = 1, end_gates: int = 10):
-        """
-        Runs experiments with fixed payload_size but increasing number of gates
-        """
+    def run_fixed_payload_varying_gates(self, payload_size: int, start_gates: int = 1, end_gates: int = 10,
+                                      run_on_ibm: bool = False, channel: str = None, token: str = None):
         experiment_results = []
         
         for num_gates in range(start_gates, end_gates + 1):
             print(f"\nRunning experiment with payload_size={payload_size} and gates={num_gates}")
             
-            # Create validator
+            use_barriers = not run_on_ibm
             validator = TeleportationValidator(
                 payload_size=payload_size,
                 gates=num_gates,
-                use_barriers=True
+                use_barriers=use_barriers
             )
             
-            # Draw circuit
             display(validator.draw())
             
-            # Run simulation
-            results = validator.run_simulation()
+            # Determine actual execution type based on result
+            execution_type = "simulation"
+            if run_on_ibm and channel and token:
+                ibm_result = validator.run_on_ibm(channel, token)
+                if ibm_result["status"] == "completed" or ibm_result["status"] == "pending":
+                    execution_type = "ibm"
+                
+                results = {
+                    "status": ibm_result["status"],
+                    "circuit_metrics": {
+                        "depth": validator.circuit.depth(),
+                        "width": validator.circuit.width(),
+                        "size": validator.circuit.size(),
+                        "count_ops": validator.circuit.count_ops(),
+                    },
+                    "config_metrics": {
+                        "payload_size": payload_size,
+                    },
+                    "ibm_data": ibm_result
+                }
+                
+                if ibm_result["status"] == "completed":
+                    results["results_metrics"] = {
+                        "counts": ibm_result["counts"],
+                        "success_rate": ibm_result["counts"].get('0' * payload_size, 0) / sum(ibm_result["counts"].values()),
+                    }
+                elif ibm_result["status"] == "error":
+                    # Fallback to simulation if IBM execution failed
+                    results = validator.run_simulation()
+                    results["status"] = "completed"
+                    results["ibm_error"] = ibm_result.get("error")
+            else:
+                results = validator.run_simulation()
+                results["status"] = "completed"
+            
             results["experiment_params"] = {
                 "experiment_type": "fixed_payload_varying_gates",
                 "payload_size": payload_size,
-                "num_gates": num_gates
+                "num_gates": num_gates,
+                "execution_type": execution_type
             }
             
             experiment_results.append(results)
             self.validators.append(validator)
-            print(f"Experiment {num_gates}/{end_gates} completed")
-            
+            print(f"Experiment {num_gates}/{end_gates} completed with status: {results['status']}")
+        
         self.results.append({
             "name": "fixed_payload_varying_gates",
-            "experiments": experiment_results
+            "experiments": experiment_results,
+            "execution_type": "ibm" if any(r["experiment_params"]["execution_type"] == "ibm" 
+                                         for r in experiment_results) else "simulation"
         })
         
         return experiment_results
-    
+
     def plot_success_rates(self, experiment_name: str = None):
         """
         Plots success rates for experiments
