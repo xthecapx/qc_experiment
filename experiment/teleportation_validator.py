@@ -387,7 +387,8 @@ class Experiments:
         self.validators = []
         
     def run_payload_size_gates_correlation(self, start: int = 1, end: int = 10, 
-                                         run_on_ibm: bool = False, channel: str = None, token: str = None):
+                                         run_on_ibm: bool = False, channel: str = None, token: str = None,
+                                         show_circuit: bool = False):
         experiment_results = []
         
         for size in range(start, end + 1):
@@ -400,7 +401,8 @@ class Experiments:
                 use_barriers=use_barriers
             )
             
-            display(validator.draw())
+            if show_circuit:
+                display(validator.draw())
             
             # Determine actual execution type based on result
             execution_type = "simulation"
@@ -458,7 +460,8 @@ class Experiments:
         return experiment_results
     
     def run_fixed_payload_varying_gates(self, payload_size: int, start_gates: int = 1, end_gates: int = 10,
-                                      run_on_ibm: bool = False, channel: str = None, token: str = None):
+                                      run_on_ibm: bool = False, channel: str = None, token: str = None,
+                                      show_circuit: bool = False):
         experiment_results = []
         
         for num_gates in range(start_gates, end_gates + 1):
@@ -471,7 +474,8 @@ class Experiments:
                 use_barriers=use_barriers
             )
             
-            display(validator.draw())
+            if show_circuit:
+                display(validator.draw())
             
             # Determine actual execution type based on result
             execution_type = "simulation"
@@ -529,7 +533,8 @@ class Experiments:
         return experiment_results
 
     def run_dynamic_payload_gates(self, payload_range: tuple, gates_range: tuple,
-                                run_on_ibm: bool = False, channel: str = None, token: str = None):
+                                run_on_ibm: bool = False, channel: str = None, token: str = None,
+                                show_circuit: bool = False):
         """
         Runs experiments with custom ranges for both payload size and number of gates.
         payload_range: tuple of (min_payload, max_payload)
@@ -551,7 +556,8 @@ class Experiments:
                     use_barriers=use_barriers
                 )
                 
-                display(validator.draw())
+                if show_circuit:
+                    display(validator.draw())
                 
                 # Determine actual execution type based on result
                 execution_type = "simulation"
