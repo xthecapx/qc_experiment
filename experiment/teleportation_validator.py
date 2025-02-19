@@ -64,10 +64,11 @@ class TeleportationProtocol:
         return self.circuit.draw(output='mpl')
 
 class TeleportationValidator:
-    def __init__(self, payload_size: int = 3, gates: list | int = None, use_barriers: bool = True):
+    def __init__(self, payload_size: int = 3, gates: list | int = None, use_barriers: bool = True, save_statevector: bool = False):
         self.gates = {}
         self.payload_size = payload_size
         self.use_barriers = use_barriers
+        self.save_statevector = save_statevector
         self.gate_types = {
             'u': lambda: QuantumGate('u', self._generate_random_u_params()),
             'x': lambda: QuantumGate('x'),
@@ -121,6 +122,8 @@ class TeleportationValidator:
         )
     
         self._create_payload(circuit)
+        if self.save_statevector:
+            circuit.save_statevector(label='after_payload')
         if self.use_barriers:
             circuit.barrier()
     
@@ -130,8 +133,13 @@ class TeleportationValidator:
         )
         if self.use_barriers:
             circuit.barrier()
+        
+        if self.save_statevector:
+            circuit.save_statevector(label='before_validation')
     
         self._create_validation(circuit)
+        if self.save_statevector:
+            circuit.save_statevector(label='after_validation')
         if self.use_barriers:
             circuit.barrier()
     
@@ -199,18 +207,27 @@ class TeleportationValidator:
 
     def _simulate(self):
         simulator = AerSimulator()
+        if self.save_statevector:
+            simulator = AerSimulator(method='statevector')
         result = simulator.run(self.circuit).result()
         counts = result.get_counts()
-        return counts
+        data = {'counts': counts}
+        
+        if self.save_statevector:
+            data['after_payload'] = result.data()['after_payload']
+            data['before_validation'] = result.data()['before_validation']
+            data['after_validation'] = result.data()['after_validation']
+            
+        return data
     
     def run_simulation(self):
         # Get simulation results
-        counts = self._simulate()
+        data = self._simulate()
         
         # Results-based metrics
         results_metrics = {
-            "counts": counts,
-            "success_rate": counts.get('0' * self.payload_size, 0) / sum(counts.values()),
+            "counts": data['counts'],
+            "success_rate": data['counts'].get('0' * self.payload_size, 0) / sum(data['counts'].values()),
         }
         
         # Circuit metrics from Qiskit
@@ -236,13 +253,31 @@ class TeleportationValidator:
                 # Single gate case
                 gate_distribution[qubit_gates.name] = gate_distribution.get(qubit_gates.name, 0) + 1
         
-        display(plot_histogram(counts))
-        return {
+        display(plot_histogram(data['counts']))
+        
+        if self.save_statevector:
+            print("\nState vector after payload:")
+            display(data['after_payload'].draw('latex'))
+            print("\nState vector before validation:")
+            display(data['before_validation'].draw('latex'))
+            print("\nState vector after validation:")
+            display(data['after_validation'].draw('latex'))
+        
+        result = {
             "results_metrics": results_metrics,
             "circuit_metrics": circuit_metrics,
             "config_metrics": config_metrics,
             "custom_gate_distribution": gate_distribution
         }
+        
+        if self.save_statevector:
+            result["statevector_data"] = {
+                "after_payload": data['after_payload'],
+                "before_validation": data['before_validation'],
+                "after_validation": data['after_validation']
+            }
+            
+        return result
 
     def run_on_ibm(self, channel, token):
         try:
@@ -575,50 +610,56 @@ class Experiments:
 
     def plot_success_rates(self, experiment_name: str = None):
         """
-        Plots success rates for experiments
+        Plots success rates for experiments. If experiment_name is provided,
+        only plots that specific experiment type.
         """
         import matplotlib.pyplot as plt
+        import numpy as np
         
-        # Collect rates directly from results
-        rates = []
+        # Collect data from results
+        data = {}
         for experiment_set in self.results:
             if experiment_name and experiment_set["name"] != experiment_name:
                 continue
+            
+            for exp in experiment_set["experiments"]:
+                if exp['status'] != 'completed':
+                    continue
                 
-            for experiment in experiment_set["experiments"]:
-                rates.append({
-                    "type": experiment["experiment_params"]["experiment_type"],
-                    "payload_size": experiment["experiment_params"]["payload_size"],
-                    "num_gates": experiment["experiment_params"]["num_gates"],
-                    "success_rate": experiment["results_metrics"]["success_rate"]
-                })
+                payload = exp['experiment_params']['payload_size']
+                gates = exp['experiment_params']['num_gates']
+                # Convert success rate to percentage
+                success = exp['results_metrics']['success_rate'] * 100
+                
+                if payload not in data:
+                    data[payload] = {'gates': [], 'success': []}
+                data[payload]['gates'].append(gates)
+                data[payload]['success'].append(success)
         
-        if not rates:
+        if not data:
             print("No results to plot")
             return
-            
+        
+        # Create the plot
         plt.figure(figsize=(10, 6))
         
-        # Group by experiment type
-        experiment_types = set(rate["type"] for rate in rates)
+        # Plot lines for each payload size with different colors and markers
+        colors = ['b', 'g', 'r', 'c', 'm']
+        for i, (payload, values) in enumerate(sorted(data.items())):
+            # Sort the data points by number of gates
+            points = sorted(zip(values['gates'], values['success']))
+            gates, success = zip(*points)
+            
+            plt.plot(gates, success, 
+                     marker='o',
+                     color=colors[i % len(colors)],
+                     label=f'Payload Size {payload}')
         
-        for exp_type in experiment_types:
-            type_rates = [r for r in rates if r["type"] == exp_type]
-            
-            if exp_type == "payload_size_gates_correlation":
-                x_values = [r["payload_size"] for r in type_rates]
-                label = "Payload Size (= Num Gates)"
-            else:
-                x_values = [r["num_gates"] for r in type_rates]
-                label = "Number of Gates"
-                
-            y_values = [r["success_rate"] for r in type_rates]
-            
-            plt.plot(x_values, y_values, 'o-', label=exp_type)
-            
-        plt.xlabel(label)
-        plt.ylabel("Success Rate")
-        plt.title("Experiment Success Rates")
+        plt.xlabel('Number of Gates')
+        plt.ylabel('Success Rate (%)')
+        plt.title('Success Rates by Payload Size and Number of Gates')
         plt.legend()
         plt.grid(True)
+        
+        # Show the plot
         plt.show()
