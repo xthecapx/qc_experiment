@@ -5,6 +5,15 @@ from qiskit.transpiler.preset_passmanagers import generate_preset_pass_manager
 from qiskit.visualization import plot_histogram
 import numpy as np
 import random
+import os
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
+
+# Get IBM Quantum credentials from environment variables
+IBM_QUANTUM_CHANNEL = os.getenv('IBM_QUANTUM_CHANNEL', 'ibm_quantum')
+IBM_QUANTUM_TOKEN = os.getenv('IBM_QUANTUM_TOKEN')
 
 class QuantumGate:
     def __init__(self, name, params=None):
@@ -279,8 +288,15 @@ class TeleportationValidator:
             
         return result
 
-    def run_on_ibm(self, channel, token):
+    def run_on_ibm(self, channel=None, token=None):
         try:
+            # Use environment variables if no credentials are provided
+            channel = channel or IBM_QUANTUM_CHANNEL
+            token = token or IBM_QUANTUM_TOKEN
+            
+            if not token:
+                raise ValueError("No IBM Quantum token provided. Please set IBM_QUANTUM_TOKEN in .env file or provide it directly.")
+
             QiskitRuntimeService.save_account(
                 channel=channel, 
                 token=token,
@@ -339,10 +355,14 @@ class TeleportationValidator:
                 "error": str(e)
             }
         
-    def get_ibm_job_results(self, job_id, token):
+    def get_ibm_job_results(self, job_id, token=None):
         # Get job results from the service
+        token = token or IBM_QUANTUM_TOKEN
+        if not token:
+            raise ValueError("No IBM Quantum token provided. Please set IBM_QUANTUM_TOKEN in .env file or provide it directly.")
+            
         service = QiskitRuntimeService(
-            channel='ibm_quantum',
+            channel=IBM_QUANTUM_CHANNEL,
             instance='ibm-q/open/main',
             token=token
         )
