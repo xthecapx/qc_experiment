@@ -2,11 +2,28 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
 import statsmodels.api as sm
+from mpl_toolkits.mplot3d import Axes3D  # For 3D plotting
 from results_1_4_500_505 import results_1_4_500_505
 from results_1_4_1000_1005 import results_1_4_1000_1005
 from results_1_4_1500_1505 import results_1_4_1500_1505
 from results_1_4_2000_2005 import results_1_4_2000_2005
 from results_1_5_200_205 import results_1_5_200_205
+
+# ColorBrewer colorblind-friendly palette
+COLORBREWER_PALETTE = {
+    1: '#e41a1c',    # Red
+    2: '#4daf4a',    # Green
+    3: '#377eb8',    # Blue
+    4: '#984ea3',    # Purple
+}
+
+# Distinct marker styles with different shapes and fills
+MARKER_STYLES = {
+    1: 'o',     # Circle
+    2: 's',     # Square
+    3: '^',     # Triangle up
+    4: 'D',     # Diamond
+}
 
 def create_experiment_dataframe():
     # List to store all experiment results
@@ -72,15 +89,11 @@ def plot_success_rates(df, use_log_x=False, use_log_y=False):
     fig = plt.figure(figsize=(10, 8))
     ax = plt.gca()
     
-    # Create a color map for different payload sizes
-    colors = ['blue', 'green', 'red', 'purple']
-    markers = ['o', 's', '^', 'D']
-    
     # Store regression results for printing
     regression_stats = []
     
     # Plot for each payload size
-    for i, payload_size in enumerate(sorted(df['payload_size'].unique())):
+    for payload_size in sorted(df['payload_size'].unique()):
         payload_data = df[df['payload_size'] == payload_size]
         
         # Group by num_gates and calculate mean success rate
@@ -90,13 +103,15 @@ def plot_success_rates(df, use_log_x=False, use_log_y=False):
         y = np.array(grouped_data.values * 100)
         
         if use_log_x:
-            x = np.log10(x)  # Log transform x-axis
+            x = np.log10(x)
         if use_log_y:
-            y = np.log10(y)  # Log transform y-axis
+            y = np.log10(y)
         
-        # Scatter plot
+        # Scatter plot with ColorBrewer colors and distinct markers
         ax.scatter(x, y, 
-                  color=colors[i], marker=markers[i], s=100,
+                  color=COLORBREWER_PALETTE[payload_size],
+                  marker=MARKER_STYLES[payload_size],
+                  s=100,
                   label=f'Payload Size {payload_size}')
         
         # Regression analysis
@@ -107,9 +122,11 @@ def plot_success_rates(df, use_log_x=False, use_log_y=False):
         X_pred = sm.add_constant(x_pred)
         y_pred = model.predict(X_pred)
         
-        # Plot regression line
-        ax.plot(x_pred, y_pred, color=colors[i], linestyle='--', alpha=0.5,
-               label=f'Trend P{payload_size} (R²={model.rsquared:.3f})')
+        # Plot regression line with matching color
+        ax.plot(x_pred, y_pred,
+                color=COLORBREWER_PALETTE[payload_size],
+                linestyle='--', alpha=0.5,
+                label=f'Trend P{payload_size} (R²={model.rsquared:.3f})')
         
         # Store regression statistics
         stats = {
@@ -169,9 +186,138 @@ def plot_success_rates(df, use_log_x=False, use_log_y=False):
     plt.savefig(f'success_rate_experiment{scale_suffix}.png', 
                 dpi=300, bbox_inches='tight')
     
-    # plt.close()
-    
     return regression_stats
+
+def plot_circuit_complexity(df):
+    """
+    Create comprehensive circuit complexity analysis plots with colorblind-friendly colors
+    """
+    # Create 2D plots
+    fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(20, 6))
+    
+    # Success vs Gates
+    for payload_size in sorted(df['payload_size'].unique()):
+        payload_data = df[df['payload_size'] == payload_size]
+        ax1.scatter(payload_data['num_gates'], payload_data['success_rate'] * 100,
+                   color=COLORBREWER_PALETTE[payload_size],
+                   marker=MARKER_STYLES[payload_size],
+                   s=100,
+                   label=f'Payload Size {payload_size}')
+    
+    ax1.set_xlabel('Number of Gates')
+    ax1.set_ylabel('Success Rate (%)')
+    ax1.set_title('Success Rate vs Number of Gates')
+    ax1.grid(True, linestyle='--', alpha=0.7)
+    ax1.legend()
+    
+    # Success vs Depth
+    for payload_size in sorted(df['payload_size'].unique()):
+        payload_data = df[df['payload_size'] == payload_size]
+        ax2.scatter(payload_data['circuit_depth'], payload_data['success_rate'] * 100,
+                   color=COLORBREWER_PALETTE[payload_size],
+                   marker=MARKER_STYLES[payload_size],
+                   s=100,
+                   label=f'Payload Size {payload_size}')
+    
+    ax2.set_xlabel('Circuit Depth')
+    ax2.set_ylabel('Success Rate (%)')
+    ax2.set_title('Success Rate vs Circuit Depth')
+    ax2.grid(True, linestyle='--', alpha=0.7)
+    ax2.legend()
+    
+    # Success vs Width
+    for payload_size in sorted(df['payload_size'].unique()):
+        payload_data = df[df['payload_size'] == payload_size]
+        ax3.scatter(payload_data['circuit_width'], payload_data['success_rate'] * 100,
+                   color=COLORBREWER_PALETTE[payload_size],
+                   marker=MARKER_STYLES[payload_size],
+                   s=100,
+                   label=f'Payload Size {payload_size}')
+    
+    ax3.set_xlabel('Circuit Width')
+    ax3.set_ylabel('Success Rate (%)')
+    ax3.set_title('Success Rate vs Circuit Width')
+    ax3.grid(True, linestyle='--', alpha=0.7)
+    ax3.legend()
+    
+    plt.tight_layout()
+    plt.savefig('circuit_complexity_2d.png', dpi=300, bbox_inches='tight')
+    plt.close()
+    
+    # Create multiple 3D plots with different viewing angles
+    view_angles = [
+        (20, 45),   # Default view
+        (20, 135),  # Rotated 90 degrees
+        (45, 90),   # Top-down view
+        (60, 30)    # Higher elevation
+    ]
+    
+    for i, (elev, azim) in enumerate(view_angles):
+        fig = plt.figure(figsize=(12, 8))
+        ax = fig.add_subplot(111, projection='3d')
+        
+        # Add a light gray background grid
+        ax.xaxis._axinfo["grid"].update({"color": (0.9, 0.9, 0.9, 0.5)})
+        ax.yaxis._axinfo["grid"].update({"color": (0.9, 0.9, 0.9, 0.5)})
+        ax.zaxis._axinfo["grid"].update({"color": (0.9, 0.9, 0.9, 0.5)})
+        
+        # Plot points for each payload size
+        for payload_size in sorted(df['payload_size'].unique()):
+            payload_data = df[df['payload_size'] == payload_size]
+            
+            # Add scatter plot with ColorBrewer colors
+            scatter = ax.scatter(payload_data['num_gates'], 
+                               payload_data['circuit_depth'],
+                               payload_data['success_rate'] * 100,
+                               color=COLORBREWER_PALETTE[payload_size],
+                               marker=MARKER_STYLES[payload_size],
+                               s=150,
+                               alpha=0.7,
+                               edgecolor='black',
+                               linewidth=0.5,
+                               label=f'Payload Size {payload_size}')
+            
+            # Add vertical lines with matching colors
+            for _, row in payload_data.iterrows():
+                ax.plot([row['num_gates'], row['num_gates']], 
+                       [row['circuit_depth'], row['circuit_depth']],
+                       [0, row['success_rate'] * 100],
+                       color=COLORBREWER_PALETTE[payload_size],
+                       alpha=0.2,
+                       linestyle='--')
+        
+        # Set labels with larger font
+        ax.set_xlabel('Number of Gates', fontsize=12, labelpad=10)
+        ax.set_ylabel('Circuit Depth', fontsize=12, labelpad=10)
+        ax.set_zlabel('Success Rate (%)', fontsize=12, labelpad=10)
+        
+        # Set title with viewing angle information
+        ax.set_title(f'Success Rate vs Gates and Circuit Depth\nView: {elev}° elevation, {azim}° azimuth',
+                    fontsize=14, pad=20)
+        
+        # Adjust the legend
+        ax.legend(bbox_to_anchor=(1.15, 0.5), loc='center left', fontsize=10)
+        
+        # Set the viewing angle
+        ax.view_init(elev=elev, azim=azim)
+        
+        # Make the panes slightly transparent
+        ax.xaxis.pane.fill = False
+        ax.yaxis.pane.fill = False
+        ax.zaxis.pane.fill = False
+        ax.xaxis.pane.set_alpha(0.1)
+        ax.yaxis.pane.set_alpha(0.1)
+        ax.zaxis.pane.set_alpha(0.1)
+        
+        # Adjust the aspect ratio to make the plot more cubic
+        ax.set_box_aspect([1, 1, 1])
+        
+        plt.tight_layout()
+        plt.savefig(f'circuit_complexity_3d_view{i+1}.png', 
+                   dpi=300, bbox_inches='tight')
+        # plt.close()
+    
+    return None
 
 if __name__ == "__main__":
     # Create the DataFrame
@@ -226,3 +372,13 @@ if __name__ == "__main__":
         print(f"R²: {stats['r_squared']:.3f}")
         print(f"p-value: {stats['p_value']:.2e}")
         print("-"*50)
+    
+    # Add circuit complexity analysis
+    print("\nGenerating Circuit Complexity Analysis Plots...")
+    plot_circuit_complexity(df)
+    print("Circuit complexity plots saved as:")
+    print("- 'circuit_complexity_2d.png'")
+    print("- 'circuit_complexity_3d_view1.png' (Default view)")
+    print("- 'circuit_complexity_3d_view2.png' (Rotated 90 degrees)")
+    print("- 'circuit_complexity_3d_view3.png' (Top-down view)")
+    print("- 'circuit_complexity_3d_view4.png' (Higher elevation)")
