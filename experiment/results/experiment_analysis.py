@@ -319,6 +319,107 @@ def plot_circuit_complexity(df):
     
     return None
 
+def plot_error_analysis(df):
+    """
+    Create comprehensive error analysis plots:
+    1. Bar plot comparing counts_zeros vs counts_ones
+    2. Stacked bar chart of error distribution
+    3. Error rate in log scale
+    """
+    # Create a figure with three subplots
+    fig = plt.figure(figsize=(20, 6))
+    gs = plt.GridSpec(1, 3, figure=fig)
+    ax1 = fig.add_subplot(gs[0])
+    ax2 = fig.add_subplot(gs[1])
+    ax3 = fig.add_subplot(gs[2])
+
+    # 1. Bar plot comparing counts_zeros vs counts_ones
+    bar_width = 0.35
+    payload_sizes = sorted(df['payload_size'].unique())
+    x = np.arange(len(payload_sizes))
+    
+    # Calculate means for each payload size
+    zeros_means = [df[df['payload_size'] == size]['counts_zeros'].mean() for size in payload_sizes]
+    ones_means = [df[df['payload_size'] == size]['counts_ones'].mean() for size in payload_sizes]
+    
+    # Create grouped bars
+    ax1.bar(x - bar_width/2, zeros_means, bar_width, label='All Zeros', 
+            color='lightgray', edgecolor='black')
+    ax1.bar(x + bar_width/2, ones_means, bar_width, label='Other States',
+            color='darkgray', edgecolor='black')
+    
+    ax1.set_xlabel('Payload Size')
+    ax1.set_ylabel('Average Counts')
+    ax1.set_title('Distribution of Measurement Outcomes')
+    ax1.set_xticks(x)
+    ax1.set_xticklabels(payload_sizes)
+    ax1.legend()
+    ax1.grid(True, linestyle='--', alpha=0.3)
+
+    # 2. Stacked bar chart showing error distribution
+    bottom = np.zeros(len(payload_sizes))
+    
+    for gate_range in [(200, 205), (500, 505), (1000, 1005), (1500, 1505), (2000, 2005)]:
+        errors = []
+        for size in payload_sizes:
+            mask = (df['payload_size'] == size) & (df['num_gates'].between(gate_range[0], gate_range[1]))
+            error_rate = 1 - df[mask]['success_rate'].mean() if not df[mask].empty else 0
+            errors.append(error_rate)
+        
+        ax2.bar(x, errors, bottom=bottom, label=f'{gate_range[0]}-{gate_range[1]} gates',
+                color=plt.cm.viridis(gate_range[0]/2000))
+        bottom += errors
+
+    ax2.set_xlabel('Payload Size')
+    ax2.set_ylabel('Cumulative Error Rate')
+    ax2.set_title('Error Distribution by Gates Range')
+    ax2.set_xticks(x)
+    ax2.set_xticklabels(payload_sizes)
+    ax2.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+    ax2.grid(True, linestyle='--', alpha=0.3)
+
+    # 3. Error rate in log scale
+    for payload_size in payload_sizes:
+        payload_data = df[df['payload_size'] == payload_size]
+        
+        # Group by num_gates and calculate mean error rate
+        grouped_data = payload_data.groupby('num_gates').agg({
+            'success_rate': 'mean',
+            'num_gates': 'first'
+        })
+        
+        error_rates = 1 - grouped_data['success_rate']
+        
+        ax3.scatter(grouped_data['num_gates'], error_rates,
+                   color=COLORBREWER_PALETTE[payload_size],
+                   marker=MARKER_STYLES[payload_size],
+                   s=100,
+                   label=f'Payload Size {payload_size}')
+        
+        # Add trend line
+        z = np.polyfit(np.log10(grouped_data['num_gates']), np.log10(error_rates), 1)
+        p = np.poly1d(z)
+        x_trend = np.linspace(grouped_data['num_gates'].min(), grouped_data['num_gates'].max(), 100)
+        y_trend = 10**p(np.log10(x_trend))
+        
+        ax3.plot(x_trend, y_trend, 
+                color=COLORBREWER_PALETTE[payload_size],
+                linestyle='--', alpha=0.5)
+
+    ax3.set_xlabel('Number of Gates')
+    ax3.set_ylabel('Error Rate')
+    ax3.set_title('Error Rate vs Number of Gates')
+    ax3.set_yscale('log')
+    ax3.set_xscale('log')
+    ax3.grid(True, linestyle='--', alpha=0.3)
+    ax3.legend()
+
+    plt.tight_layout()
+    plt.savefig('error_analysis.png', dpi=300, bbox_inches='tight')
+    # plt.close()
+
+    return None
+
 if __name__ == "__main__":
     # Create the DataFrame
     df = create_experiment_dataframe()
@@ -382,3 +483,8 @@ if __name__ == "__main__":
     print("- 'circuit_complexity_3d_view2.png' (Rotated 90 degrees)")
     print("- 'circuit_complexity_3d_view3.png' (Top-down view)")
     print("- 'circuit_complexity_3d_view4.png' (Higher elevation)")
+    
+    # Add error analysis
+    print("\nGenerating Error Analysis Plots...")
+    plot_error_analysis(df)
+    print("Error analysis plots saved as 'error_analysis.png'")
