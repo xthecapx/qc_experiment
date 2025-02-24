@@ -321,7 +321,7 @@ def plot_circuit_complexity(df):
 
 def plot_error_analysis(df):
     """
-    Create comprehensive error analysis plots:
+    Create comprehensive error analysis plots using colorblind-friendly ColorBrewer palette:
     1. Bar plot comparing counts_zeros vs counts_ones
     2. Stacked bar chart of error distribution
     3. Error rate in log scale
@@ -342,37 +342,48 @@ def plot_error_analysis(df):
     zeros_means = [df[df['payload_size'] == size]['counts_zeros'].mean() for size in payload_sizes]
     ones_means = [df[df['payload_size'] == size]['counts_ones'].mean() for size in payload_sizes]
     
-    # Create grouped bars
-    ax1.bar(x - bar_width/2, zeros_means, bar_width, label='All Zeros', 
-            color='lightgray', edgecolor='black')
-    ax1.bar(x + bar_width/2, ones_means, bar_width, label='Other States',
-            color='darkgray', edgecolor='black')
+    # Create bars for each payload size with ColorBrewer colors
+    for i, size in enumerate(payload_sizes):
+        # Create grouped bars with matching colors
+        ax1.bar(x[i] - bar_width/2, zeros_means[i], bar_width,
+                color=COLORBREWER_PALETTE[size], alpha=0.7,
+                edgecolor='black', linewidth=1,
+                label=f'All Zeros (P{size})')
+        ax1.bar(x[i] + bar_width/2, ones_means[i], bar_width,
+                color=COLORBREWER_PALETTE[size], alpha=0.3,
+                edgecolor='black', linewidth=1, hatch='///',
+                label=f'Other States (P{size})')
     
-    ax1.set_xlabel('Payload Size')
-    ax1.set_ylabel('Average Counts')
-    ax1.set_title('Distribution of Measurement Outcomes')
+    ax1.set_xlabel('Payload Size', fontsize=12)
+    ax1.set_ylabel('Average Counts', fontsize=12)
+    ax1.set_title('Distribution of Measurement Outcomes', fontsize=14)
     ax1.set_xticks(x)
     ax1.set_xticklabels(payload_sizes)
-    ax1.legend()
+    ax1.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
     ax1.grid(True, linestyle='--', alpha=0.3)
 
     # 2. Stacked bar chart showing error distribution
     bottom = np.zeros(len(payload_sizes))
+    gate_ranges = [(200, 205), (500, 505), (1000, 1005), (1500, 1505), (2000, 2005)]
     
-    for gate_range in [(200, 205), (500, 505), (1000, 1005), (1500, 1505), (2000, 2005)]:
+    for i, gate_range in enumerate(gate_ranges):
         errors = []
         for size in payload_sizes:
             mask = (df['payload_size'] == size) & (df['num_gates'].between(gate_range[0], gate_range[1]))
             error_rate = 1 - df[mask]['success_rate'].mean() if not df[mask].empty else 0
             errors.append(error_rate)
         
-        ax2.bar(x, errors, bottom=bottom, label=f'{gate_range[0]}-{gate_range[1]} gates',
-                color=plt.cm.viridis(gate_range[0]/2000))
+        # Use ColorBrewer colors with varying alpha for different gate ranges
+        ax2.bar(x, errors, bottom=bottom,
+                label=f'{gate_range[0]}-{gate_range[1]} gates',
+                color=COLORBREWER_PALETTE[1],  # Use red as base color
+                alpha=0.2 + (i * 0.15),  # Increasing alpha for each range
+                edgecolor='black', linewidth=0.5)
         bottom += errors
 
-    ax2.set_xlabel('Payload Size')
-    ax2.set_ylabel('Cumulative Error Rate')
-    ax2.set_title('Error Distribution by Gates Range')
+    ax2.set_xlabel('Payload Size', fontsize=12)
+    ax2.set_ylabel('Cumulative Error Rate', fontsize=12)
+    ax2.set_title('Error Distribution by Gates Range', fontsize=14)
     ax2.set_xticks(x)
     ax2.set_xticklabels(payload_sizes)
     ax2.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
@@ -390,11 +401,13 @@ def plot_error_analysis(df):
         
         error_rates = 1 - grouped_data['success_rate']
         
+        # Scatter plot with ColorBrewer colors and markers
         ax3.scatter(grouped_data['num_gates'], error_rates,
                    color=COLORBREWER_PALETTE[payload_size],
                    marker=MARKER_STYLES[payload_size],
                    s=100,
-                   label=f'Payload Size {payload_size}')
+                   label=f'Payload Size {payload_size}',
+                   edgecolor='black', linewidth=0.5)
         
         # Add trend line
         z = np.polyfit(np.log10(grouped_data['num_gates']), np.log10(error_rates), 1)
@@ -402,19 +415,25 @@ def plot_error_analysis(df):
         x_trend = np.linspace(grouped_data['num_gates'].min(), grouped_data['num_gates'].max(), 100)
         y_trend = 10**p(np.log10(x_trend))
         
+        # Plot trend line with matching color
         ax3.plot(x_trend, y_trend, 
                 color=COLORBREWER_PALETTE[payload_size],
-                linestyle='--', alpha=0.5)
+                linestyle='--', alpha=0.7,
+                label=f'Trend P{payload_size} (slope: {z[0]:.2f})')
 
-    ax3.set_xlabel('Number of Gates')
-    ax3.set_ylabel('Error Rate')
-    ax3.set_title('Error Rate vs Number of Gates')
+    ax3.set_xlabel('Number of Gates', fontsize=12)
+    ax3.set_ylabel('Error Rate', fontsize=12)
+    ax3.set_title('Error Rate vs Number of Gates (Log Scale)', fontsize=14)
     ax3.set_yscale('log')
     ax3.set_xscale('log')
     ax3.grid(True, linestyle='--', alpha=0.3)
-    ax3.legend()
+    ax3.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
 
+    # Adjust layout to accommodate legends
     plt.tight_layout()
+    plt.subplots_adjust(right=0.85)
+    
+    # Save figure
     plt.savefig('error_analysis.png', dpi=300, bbox_inches='tight')
     # plt.close()
 
