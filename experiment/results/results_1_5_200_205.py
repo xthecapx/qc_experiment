@@ -1,4 +1,4 @@
-experiment_results = [
+experiment_results_1_5_200_205 = [
     {
         "status": "completed",
         "circuit_metrics": {
@@ -1824,19 +1824,21 @@ experiment_results = [
     },
 ]
 
-results = [{
-    "name": "dynamic_payload_gates",
-    "experiments": [
-        {
-            "status": "completed",
-            "circuit_metrics": result["circuit_metrics"],
-            "config_metrics": result["config_metrics"],
-            "ibm_data": result["ibm_data"],
-            "results_metrics": result["results_metrics"],
-            "experiment_params": result["experiment_params"]
-        }
-        for result in experiment_results
-        if result["status"] == "completed"
-    ],
-    "execution_type": "ibm"
-}]
+results_1_5_200_205 = [
+    {
+        "name": "1_5_200_205",
+        "experiments": [
+            {
+                "status": "completed",
+                "circuit_metrics": result["circuit_metrics"],
+                "config_metrics": result["config_metrics"],
+                "ibm_data": result["ibm_data"],
+                "results_metrics": result["results_metrics"],
+                "experiment_params": result["experiment_params"],
+            }
+            for result in experiment_results_1_5_200_205
+            if result["status"] == "completed"
+        ],
+        "execution_type": "ibm",
+    }
+]
