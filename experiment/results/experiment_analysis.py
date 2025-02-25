@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import statsmodels.api as sm
 from mpl_toolkits.mplot3d import Axes3D  # For 3D plotting
+from matplotlib import patches
 from results_1_4_500_505 import results_1_4_500_505
 from results_1_4_1000_1005 import results_1_4_1000_1005
 from results_1_4_1500_1505 import results_1_4_1500_1505
@@ -11,10 +12,11 @@ from results_1_5_200_205 import results_1_5_200_205
 
 # ColorBrewer colorblind-friendly palette
 COLORBREWER_PALETTE = {
-    1: '#e41a1c',    # Red
-    2: '#4daf4a',    # Green
-    3: '#377eb8',    # Blue
-    4: '#984ea3',    # Purple
+    1: '#d7191c',    # Red
+    2: '#fdae61',    # Orange
+    3: '#ffffbf',    # Yellow
+    4: '#abdda4',    # Light Green
+    5: '#2b83ba'     # Blue
 }
 
 # Distinct marker styles with different shapes and fills
@@ -23,6 +25,12 @@ MARKER_STYLES = {
     2: 's',     # Square
     3: '^',     # Triangle up
     4: 'D',     # Diamond
+    5: 'v',     # Triangle down
+    6: 'p',     # Pentagon
+    7: 'h',     # Hexagon
+    8: '8',     # Octagon
+    9: '*',     # Star
+    10: 'P',    # Plus (filled)
 }
 
 def create_experiment_dataframe():
@@ -439,6 +447,121 @@ def plot_error_analysis(df):
 
     return None
 
+def calculate_cap_score(success_rate, payload_size, gate_count, ps_max=4, g_max=2000):
+    """
+    Calculate the Cap-score for given parameters.
+    
+    Cap-score = S_{ps,g} * sqrt((ps * g)/(ps_max * g_max)) * 100
+    
+    Parameters:
+    -----------
+    success_rate : float
+        Success rate (0 to 1)
+    payload_size : int
+        Number of qubits in payload
+    gate_count : int
+        Number of gates
+    ps_max : int
+        Maximum payload size (default: 4)
+    g_max : int
+        Maximum gate count (default: 2000)
+    
+    Returns:
+    --------
+    float : Cap-score (0 to 100)
+    """
+    return success_rate * np.sqrt((payload_size * gate_count)/(ps_max * g_max)) * 100
+
+def plot_cap_scores(df):
+    """
+    Create visualization of Cap-scores with grouped bars for each payload size and gate range.
+    """
+    # Create figure
+    fig, ax = plt.subplots(figsize=(15, 8))
+    
+    # Gate ranges to analyze
+    gate_ranges = [(200, 205), (500, 505), (1000, 1005), (1500, 1505), (2000, 2005)]
+    payload_sizes = sorted(df['payload_size'].unique())
+    
+    # Calculate positions for bars
+    bar_width = 0.17  # Increased from 0.15
+    index = np.arange(len(payload_sizes))
+    
+    # Calculate and plot Cap-scores for each gate range
+    for i, gate_range in enumerate(gate_ranges):
+        cap_scores = []
+        
+        for size in payload_sizes:
+            mask = (df['payload_size'] == size) & (df['num_gates'].between(gate_range[0], gate_range[1]))
+            if not df[mask].empty:
+                success_rate = df[mask]['success_rate'].mean()
+                cap_score = calculate_cap_score(success_rate, size, gate_range[0])
+                cap_scores.append(cap_score)
+            else:
+                cap_scores.append(0)
+        
+        # Create bars with position offset
+        position = index + (i - 2) * bar_width
+        bars = ax.bar(position, cap_scores, bar_width,
+                     color=COLORBREWER_PALETTE[i+1],
+                     edgecolor='black',
+                     linewidth=1,
+                     alpha=0.8)
+        
+        # Add value labels inside bars
+        for bar in bars:
+            height = bar.get_height()
+            if height > 0:  # Only add label if there's a value
+                # Position text at 50% of bar height
+                ax.text(bar.get_x() + bar_width/2., height/2.,
+                       f'{height:.1f}',
+                       ha='center', va='center',
+                       rotation=0, fontsize=12,  # Increased from 10
+                       color='black',
+                       weight='bold')  # Made text bold
+    
+    # Customize plot
+    ax.set_xlabel('Payload Size (qubits)', fontsize=14)  # Increased from 12
+    ax.set_ylabel('Cap-score', fontsize=14)  # Increased from 12
+    ax.set_title('Quantum Hardware Cap-scores Analysis\nMeasuring combined success rate and complexity handling', 
+                fontsize=16)  # Increased from 14
+    
+    # Set x-axis labels
+    ax.set_xticks(index)
+    ax.set_xticklabels([f'{size} qubits' for size in payload_sizes], fontsize=12)  # Added fontsize
+    ax.tick_params(axis='y', labelsize=12)  # Increased y-axis tick label size
+    
+    # Customize grid
+    ax.grid(True, linestyle='--', alpha=0.3, axis='y')
+    ax.set_axisbelow(True)  # Put grid behind bars
+    
+    # Set y-axis limits
+    ax.set_ylim(0, 30)
+    
+    # Create legend for gate ranges using squares
+    gate_handles = [plt.Line2D([0], [0], marker='s', color='w', 
+                              markerfacecolor=COLORBREWER_PALETTE[i+1],
+                              markersize=12,  # Increased from 10
+                              markeredgecolor='black')
+                   for i in range(len(gate_ranges))]
+    gate_labels = [f'{r[0]}-{r[1]} gates' for r in gate_ranges]
+    
+    gate_legend = ax.legend(gate_handles, gate_labels,
+                           title='Gate Ranges',
+                           bbox_to_anchor=(1.02, 0.5),
+                           loc='center left',
+                           fontsize=12,  # Added fontsize for legend text
+                           title_fontsize=14)  # Added fontsize for legend title
+    
+    # Adjust layout
+    plt.subplots_adjust(right=0.85)
+    
+    # Save figure
+    plt.savefig('cap_scores_analysis.png', dpi=300, bbox_inches='tight')
+    # plt.close()
+    
+    return None
+
 if __name__ == "__main__":
     # Create the DataFrame
     df = create_experiment_dataframe()
@@ -507,3 +630,8 @@ if __name__ == "__main__":
     print("\nGenerating Error Analysis Plots...")
     plot_error_analysis(df)
     print("Error analysis plots saved as 'error_analysis.png'")
+    
+    # Add Cap-score analysis
+    print("\nGenerating Cap-score Analysis Plot...")
+    plot_cap_scores(df)
+    print("Cap-score analysis plot saved as 'cap_scores_analysis.png'")
