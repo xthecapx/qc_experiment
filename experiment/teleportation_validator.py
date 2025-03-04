@@ -6,6 +6,9 @@ from qiskit.visualization import plot_histogram
 import numpy as np
 import random
 import os
+import pandas as pd
+import json
+import matplotlib.pyplot as plt
 from dotenv import load_dotenv
 from results import results_1_4_2000_2005
 
@@ -246,6 +249,13 @@ class TeleportationValidator:
             "width": self.circuit.width(),
             "size": self.circuit.size(),
             "count_ops": self.circuit.count_ops(),
+            "num_qubits": self.circuit.num_qubits,
+            "num_clbits": self.circuit.num_clbits,
+            "num_ancillas": self.circuit.num_ancillas,
+            "num_parameters": self.circuit.num_parameters,
+            "has_calibrations": bool(self.circuit.calibrations),
+            "has_layout": bool(self.circuit.layout),
+            "duration": self.circuit.estimate_duration() if hasattr(self.circuit, 'estimate_duration') else None
         }
         
         # Configuration metrics
@@ -356,16 +366,17 @@ class TeleportationValidator:
                 "error": str(e)
             }
         
-    def get_ibm_job_results(self, job_id, token=None):
+    def get_ibm_job_results(self, job_id):
         # Get job results from the service
-        token = token or IBM_QUANTUM_TOKEN
-        if not token:
+
+        if not IBM_QUANTUM_TOKEN:
             raise ValueError("No IBM Quantum token provided. Please set IBM_QUANTUM_TOKEN in .env file or provide it directly.")
-            
+        
+        print(IBM_QUANTUM_CHANNEL, job_id)
         service = QiskitRuntimeService(
             channel=IBM_QUANTUM_CHANNEL,
             instance='ibm-q/open/main',
-            token=token
+            token=IBM_QUANTUM_TOKEN
         )
         job = service.job(job_id)
         job_result = job.result()
@@ -376,13 +387,6 @@ class TeleportationValidator:
         print(counts)
         display(plot_histogram(counts))
         
-        # Get metrics from both the executed circuit and our original circuit
-        print("\nCircuit Metrics:")
-        print(f"Circuit depth: {self.circuit.depth()}")
-        print(f"Circuit width: {self.circuit.width()}")
-        print(f"Total number of operations: {self.circuit.size()}")
-        print(f"Operation distribution: {self.circuit.count_ops()}")
-        
         # Calculate success rate
         bit_string_length = len(next(iter(counts)))
         success_count = counts.get('0' * bit_string_length, 0)
@@ -391,27 +395,74 @@ class TeleportationValidator:
         
         print(f"\nSuccess Rate: {success_rate:.2%}")
         
-        # Return comprehensive metrics
+        # Return comprehensive metrics matching _prepare_result_data
         return {
             "counts": counts,
-            "depth": self.circuit.depth(),
-            "width": self.circuit.width(),
-            "size": self.circuit.size(),
-            "operations": self.circuit.count_ops(),
             "success_rate": success_rate,
+            "circuit_depth": self.circuit.depth(),
+            "circuit_width": self.circuit.width(),
+            "circuit_size": self.circuit.size(),
+            "circuit_count_ops": self.circuit.count_ops(),
+            "num_qubits": self.circuit.num_qubits,
+            "num_clbits": self.circuit.num_clbits,
+            "num_ancillas": self.circuit.num_ancillas,
+            "num_parameters": self.circuit.num_parameters,
+            "has_calibrations": bool(self.circuit.calibrations),
+            "has_layout": bool(self.circuit.layout),
+            "duration": self.circuit.estimate_duration() if hasattr(self.circuit, 'estimate_duration') else None,
             "job_result": job_result  # Include the full job result for additional analysis if needed
         }
 
 class Experiments:
     def __init__(self):
-        self.results = []
-        self.validators = []
+        self.results_df = pd.DataFrame()
+    
+    def _serialize_dict(self, data):
+        """Convert dictionary to JSON string"""
+        return json.dumps(data)
+    
+    def _deserialize_dict(self, json_str):
+        """Convert JSON string back to dictionary"""
+        return json.loads(json_str) if pd.notna(json_str) else {}
+    
+    def _prepare_result_data(self, validator, status, execution_type, experiment_type, 
+                           payload_size, num_gates, counts=None, success_rate=None,
+                           ibm_data=None):
+        """Helper method to prepare result data with proper serialization"""
+        result_data = {
+            "status": status,
+            "circuit_depth": validator.circuit.depth(),
+            "circuit_width": validator.circuit.width(),
+            "circuit_size": validator.circuit.size(),
+            "circuit_count_ops": self._serialize_dict(validator.circuit.count_ops()),
+            "num_qubits": validator.circuit.num_qubits,
+            "num_clbits": validator.circuit.num_clbits,
+            "num_ancillas": validator.circuit.num_ancillas,
+            "num_parameters": validator.circuit.num_parameters,
+            "has_calibrations": bool(validator.circuit.calibrations),
+            "has_layout": bool(validator.circuit.layout),
+            "duration": validator.circuit.estimate_duration() if hasattr(validator.circuit, 'estimate_duration') else None,
+            "payload_size": payload_size,
+            "num_gates": num_gates,
+            "execution_type": execution_type,
+            "experiment_type": experiment_type
+        }
         
+        if counts is not None:
+            result_data["counts"] = self._serialize_dict(counts)
+        if success_rate is not None:
+            result_data["success_rate"] = success_rate
+        if ibm_data:
+            result_data.update({
+                "ibm_job_id": ibm_data.get("job_id"),
+                "ibm_backend": ibm_data.get("backend")
+            })
+        
+        return result_data
+
     def run_payload_size_gates_correlation(self, start: int = 1, end: int = 10, 
-                                         run_on_ibm: bool = False, channel: str = None, token: str = None,
+                                         run_on_ibm: bool = False, channel: str = IBM_QUANTUM_CHANNEL, token: str = IBM_QUANTUM_TOKEN,
                                          show_circuit: bool = False):
-        experiment_results = []
-        
         for size in range(start, end + 1):
             print(f"\nRunning experiment with payload_size={size} and gates={size}")
             
@@ -432,59 +483,57 @@ class Experiments:
                 if ibm_result["status"] == "completed" or ibm_result["status"] == "pending":
                     execution_type = "ibm"
                 
-                results = {
-                    "status": ibm_result["status"],
-                    "circuit_metrics": {
-                        "depth": validator.circuit.depth(),
-                        "width": validator.circuit.width(),
-                        "size": validator.circuit.size(),
-                        "count_ops": validator.circuit.count_ops(),
-                    },
-                    "config_metrics": {
-                        "payload_size": size,
-                    },
-                    "ibm_data": ibm_result
-                }
+                result_data = self._prepare_result_data(
+                    validator=validator,
+                    status=ibm_result["status"],
+                    execution_type=execution_type,
+                    experiment_type="payload_size_gates_correlation",
+                    payload_size=size,
+                    num_gates=size
+                )
                 
                 if ibm_result["status"] == "completed":
-                    results["results_metrics"] = {
-                        "counts": ibm_result["counts"],
+                    result_data.update({
+                        "counts": self._serialize_dict(ibm_result["counts"]),
                         "success_rate": ibm_result["counts"].get('0' * size, 0) / sum(ibm_result["counts"].values()),
-                    }
+                        "ibm_job_id": ibm_result.get("job_id"),
+                        "ibm_backend": ibm_result.get("backend")
+                    })
                 elif ibm_result["status"] == "error":
                     # Fallback to simulation if IBM execution failed
-                    results = validator.run_simulation()
-                    results["status"] = "completed"
-                    results["ibm_error"] = ibm_result.get("error")
+                    sim_result = validator.run_simulation()
+                    result_data.update({
+                        "status": "completed",
+                        "counts": self._serialize_dict(sim_result["results_metrics"]["counts"]),
+                        "success_rate": sim_result["results_metrics"]["success_rate"],
+                        "ibm_error": ibm_result.get("error")
+                    })
             else:
-                results = validator.run_simulation()
-                results["status"] = "completed"
+                sim_result = validator.run_simulation()
+                result_data = self._prepare_result_data(
+                    validator=validator,
+                    status="completed",
+                    execution_type="simulation",
+                    experiment_type="payload_size_gates_correlation",
+                    payload_size=size,
+                    num_gates=size,
+                    counts=sim_result["results_metrics"]["counts"],
+                    success_rate=sim_result["results_metrics"]["success_rate"]
+                )
             
-            results["experiment_params"] = {
-                "experiment_type": "payload_size_gates_correlation",
-                "payload_size": size,
-                "num_gates": size,
-                "execution_type": execution_type
-            }
-            
-            experiment_results.append(results)
-            self.validators.append(validator)
-            print(f"Experiment {size}/{end} completed with status: {results['status']}")
+            # Append to DataFrame
+            self.results_df = pd.concat([self.results_df, pd.DataFrame([result_data])], ignore_index=True)
+            print(f"Experiment {size}/{end} completed with status: {result_data['status']}")
         
-        self.results.append({
-            "name": "payload_size_gates_correlation",
-            "experiments": experiment_results,
-            "execution_type": "ibm" if any(r["experiment_params"]["execution_type"] == "ibm" 
-                                         for r in experiment_results) else "simulation"
-        })
+        # Export results to CSV with timestamp
+        timestamp = pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')
+        self.export_to_csv(f'experiment_results_payload_correlation_{timestamp}.csv')
         
-        return experiment_results
-    
+        return self.results_df
+
     def run_fixed_payload_varying_gates(self, payload_size: int, start_gates: int = 1, end_gates: int = 10,
-                                      run_on_ibm: bool = False, channel: str = None, token: str = None,
+                                      run_on_ibm: bool = False, channel: str = IBM_QUANTUM_CHANNEL, token: str = IBM_QUANTUM_TOKEN,
                                       show_circuit: bool = False):
-        experiment_results = []
-        
         for num_gates in range(start_gates, end_gates + 1):
             print(f"\nRunning experiment with payload_size={payload_size} and gates={num_gates}")
             
@@ -505,64 +554,68 @@ class Experiments:
                 if ibm_result["status"] == "completed" or ibm_result["status"] == "pending":
                     execution_type = "ibm"
                 
-                results = {
+                result_data = {
                     "status": ibm_result["status"],
-                    "circuit_metrics": {
-                        "depth": validator.circuit.depth(),
-                        "width": validator.circuit.width(),
-                        "size": validator.circuit.size(),
-                        "count_ops": validator.circuit.count_ops(),
-                    },
-                    "config_metrics": {
-                        "payload_size": payload_size,
-                    },
-                    "ibm_data": ibm_result
+                    "circuit_depth": validator.circuit.depth(),
+                    "circuit_width": validator.circuit.width(),
+                    "circuit_size": validator.circuit.size(),
+                    "circuit_count_ops": str(validator.circuit.count_ops()),
+                    "payload_size": payload_size,
+                    "num_gates": num_gates,
+                    "execution_type": execution_type,
+                    "experiment_type": "fixed_payload_varying_gates"
                 }
                 
                 if ibm_result["status"] == "completed":
-                    results["results_metrics"] = {
-                        "counts": ibm_result["counts"],
+                    result_data.update({
+                        "counts": str(ibm_result["counts"]),
                         "success_rate": ibm_result["counts"].get('0' * payload_size, 0) / sum(ibm_result["counts"].values()),
-                    }
+                        "ibm_job_id": ibm_result.get("job_id"),
+                        "ibm_backend": ibm_result.get("backend")
+                    })
                 elif ibm_result["status"] == "error":
                     # Fallback to simulation if IBM execution failed
-                    results = validator.run_simulation()
-                    results["status"] = "completed"
-                    results["ibm_error"] = ibm_result.get("error")
+                    sim_result = validator.run_simulation()
+                    result_data.update({
+                        "status": "completed",
+                        "counts": str(sim_result["results_metrics"]["counts"]),
+                        "success_rate": sim_result["results_metrics"]["success_rate"],
+                        "ibm_error": ibm_result.get("error")
+                    })
             else:
-                results = validator.run_simulation()
-                results["status"] = "completed"
+                sim_result = validator.run_simulation()
+                result_data = {
+                    "status": "completed",
+                    "circuit_depth": validator.circuit.depth(),
+                    "circuit_width": validator.circuit.width(),
+                    "circuit_size": validator.circuit.size(),
+                    "circuit_count_ops": str(validator.circuit.count_ops()),
+                    "payload_size": payload_size,
+                    "num_gates": num_gates,
+                    "execution_type": "simulation",
+                    "experiment_type": "fixed_payload_varying_gates",
+                    "counts": str(sim_result["results_metrics"]["counts"]),
+                    "success_rate": sim_result["results_metrics"]["success_rate"]
+                }
             
-            results["experiment_params"] = {
-                "experiment_type": "fixed_payload_varying_gates",
-                "payload_size": payload_size,
-                "num_gates": num_gates,
-                "execution_type": execution_type
-            }
-            
-            experiment_results.append(results)
-            self.validators.append(validator)
-            print(f"Experiment {num_gates}/{end_gates} completed with status: {results['status']}")
+            # Append to DataFrame
+            self.results_df = pd.concat([self.results_df, pd.DataFrame([result_data])], ignore_index=True)
+            print(f"Experiment {num_gates}/{end_gates} completed with status: {result_data['status']}")
         
-        self.results.append({
-            "name": "fixed_payload_varying_gates",
-            "experiments": experiment_results,
-            "execution_type": "ibm" if any(r["experiment_params"]["execution_type"] == "ibm" 
-                                         for r in experiment_results) else "simulation"
-        })
+        # Export results to CSV with timestamp
+        timestamp = pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')
+        self.export_to_csv(f'experiment_results_fixed_payload_{payload_size}_{timestamp}.csv')
         
-        return experiment_results
+        return self.results_df
 
     def run_dynamic_payload_gates(self, payload_range: tuple, gates_range: tuple,
-                                run_on_ibm: bool = False, channel: str = None, token: str = None,
+                                run_on_ibm: bool = False, channel: str = IBM_QUANTUM_CHANNEL, token: str = IBM_QUANTUM_TOKEN,
                                 show_circuit: bool = False):
         """
         Runs experiments with custom ranges for both payload size and number of gates.
         payload_range: tuple of (min_payload, max_payload)
         gates_range: tuple of (min_gates, max_gates)
         """
-        experiment_results = []
-        
         start_payload, end_payload = payload_range
         start_gates, end_gates = gates_range
         
@@ -587,100 +640,80 @@ class Experiments:
                     if ibm_result["status"] == "completed" or ibm_result["status"] == "pending":
                         execution_type = "ibm"
                     
-                    results = {
-                        "status": ibm_result["status"],
-                        "circuit_metrics": {
-                            "depth": validator.circuit.depth(),
-                            "width": validator.circuit.width(),
-                            "size": validator.circuit.size(),
-                            "count_ops": validator.circuit.count_ops(),
-                        },
-                        "config_metrics": {
-                            "payload_size": payload_size,
-                        },
-                        "ibm_data": ibm_result
-                    }
+                    result_data = self._prepare_result_data(
+                        validator=validator,
+                        status=ibm_result["status"],
+                        execution_type=execution_type,
+                        experiment_type="dynamic_payload_gates",
+                        payload_size=payload_size,
+                        num_gates=num_gates
+                    )
                     
                     if ibm_result["status"] == "completed":
-                        results["results_metrics"] = {
-                            "counts": ibm_result["counts"],
+                        result_data.update({
+                            "counts": self._serialize_dict(ibm_result["counts"]),
                             "success_rate": ibm_result["counts"].get('0' * payload_size, 0) / sum(ibm_result["counts"].values()),
-                        }
+                            "ibm_job_id": ibm_result.get("job_id"),
+                            "ibm_backend": ibm_result.get("backend")
+                        })
                     elif ibm_result["status"] == "error":
                         # Fallback to simulation if IBM execution failed
-                        results = validator.run_simulation()
-                        results["status"] = "completed"
-                        results["ibm_error"] = ibm_result.get("error")
+                        sim_result = validator.run_simulation()
+                        result_data.update({
+                            "status": "completed",
+                            "counts": self._serialize_dict(sim_result["results_metrics"]["counts"]),
+                            "success_rate": sim_result["results_metrics"]["success_rate"],
+                            "ibm_error": ibm_result.get("error")
+                        })
                 else:
-                    results = validator.run_simulation()
-                    results["status"] = "completed"
+                    sim_result = validator.run_simulation()
+                    result_data = self._prepare_result_data(
+                        validator=validator,
+                        status="completed",
+                        execution_type="simulation",
+                        experiment_type="dynamic_payload_gates",
+                        payload_size=payload_size,
+                        num_gates=num_gates,
+                        counts=sim_result["results_metrics"]["counts"],
+                        success_rate=sim_result["results_metrics"]["success_rate"]
+                    )
                 
-                results["experiment_params"] = {
-                    "experiment_type": "dynamic_payload_gates",
-                    "payload_size": payload_size,
-                    "num_gates": num_gates,
-                    "execution_type": execution_type
-                }
-                
-                experiment_results.append(results)
-                self.validators.append(validator)
-                print(f"Experiment with payload={payload_size}, gates={num_gates} completed with status: {results['status']}")
+                # Append to DataFrame
+                self.results_df = pd.concat([self.results_df, pd.DataFrame([result_data])], ignore_index=True)
+                print(f"Experiment with payload={payload_size}, gates={num_gates} completed with status: {result_data['status']}")
         
-        self.results.append({
-            "name": "dynamic_payload_gates",
-            "experiments": experiment_results,
-            "execution_type": "ibm" if any(r["experiment_params"]["execution_type"] == "ibm" 
-                                         for r in experiment_results) else "simulation"
-        })
+        # Export results to CSV with timestamp
+        timestamp = pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')
+        self.export_to_csv(f'experiment_results_dynamic_{start_payload}-{end_payload}_{start_gates}-{end_gates}_{timestamp}.csv')
         
-        return experiment_results
+        return self.results_df
 
     def plot_success_rates(self, experiment_name: str = None):
         """
         Plots success rates for experiments. If experiment_name is provided,
         only plots that specific experiment type.
         """
-        import matplotlib.pyplot as plt
-        import numpy as np
+        # Filter DataFrame if experiment_name is provided
+        df = self.results_df
+        if experiment_name:
+            df = df[df['experiment_type'] == experiment_name]
         
-        # Collect data from results
-        data = {}
-        for experiment_set in self.results:
-            if experiment_name and experiment_set["name"] != experiment_name:
-                continue
-            
-            for exp in experiment_set["experiments"]:
-                if exp['status'] != 'completed':
-                    continue
-                
-                payload = exp['experiment_params']['payload_size']
-                gates = exp['experiment_params']['num_gates']
-                # Convert success rate to percentage
-                success = exp['results_metrics']['success_rate'] * 100
-                
-                if payload not in data:
-                    data[payload] = {'gates': [], 'success': []}
-                data[payload]['gates'].append(gates)
-                data[payload]['success'].append(success)
-        
-        if not data:
+        if df.empty:
             print("No results to plot")
             return
         
         # Create the plot
         plt.figure(figsize=(10, 6))
         
-        # Plot lines for each payload size with different colors and markers
+        # Plot lines for each payload size
         colors = ['b', 'g', 'r', 'c', 'm']
-        for i, (payload, values) in enumerate(sorted(data.items())):
-            # Sort the data points by number of gates
-            points = sorted(zip(values['gates'], values['success']))
-            gates, success = zip(*points)
-            
-            plt.plot(gates, success, 
-                     marker='o',
-                     color=colors[i % len(colors)],
-                     label=f'Payload Size {payload}')
+        for i, payload in enumerate(sorted(df['payload_size'].unique())):
+            payload_data = df[df['payload_size'] == payload]
+            plt.plot(payload_data['num_gates'], 
+                    payload_data['success_rate'] * 100,
+                    marker='o',
+                    color=colors[i % len(colors)],
+                    label=f'Payload Size {payload}')
         
         plt.xlabel('Number of Gates')
         plt.ylabel('Success Rate (%)')
@@ -690,3 +723,59 @@ class Experiments:
         
         # Show the plot
         plt.show()
+
+    def export_to_csv(self, filename: str = 'experiment_results.csv'):
+        """
+        Exports the experiment results to a CSV file.
+        Args:
+            filename (str): Name of the CSV file to save the results
+        """
+        self.results_df.to_csv(filename, index=False)
+        print(f"Results exported to {filename}")
+
+    @classmethod
+    def from_csv(cls, filename: str = 'experiment_results.csv'):
+        """
+        Creates an Experiments instance from a CSV file.
+        Args:
+            filename (str): Name of the CSV file to read the results from
+        Returns:
+            Experiments: New instance with loaded results
+        """
+        # Create new instance
+        experiments = cls()
+        
+        # Read the CSV file directly into the DataFrame
+        experiments.results_df = pd.read_csv(filename)
+        
+        # Convert JSON strings back to dictionaries for specific columns
+        json_columns = ['circuit_count_ops', 'counts']
+        for col in json_columns:
+            if col in experiments.results_df.columns:
+                experiments.results_df[col] = experiments.results_df[col].apply(experiments._deserialize_dict)
+        
+        return experiments
+
+    def get_circuit_operations(self, row_index: int = None):
+        """
+        Get circuit operations as a dictionary.
+        Args:
+            row_index (int, optional): Index of the row to get operations from. If None, returns all.
+        Returns:
+            dict or list of dicts: Circuit operations
+        """
+        if row_index is not None:
+            return self._deserialize_dict(self.results_df.iloc[row_index]['circuit_count_ops'])
+        return [self._deserialize_dict(ops) for ops in self.results_df['circuit_count_ops']]
+
+    def get_counts(self, row_index: int = None):
+        """
+        Get measurement counts as a dictionary.
+        Args:
+            row_index (int, optional): Index of the row to get counts from. If None, returns all.
+        Returns:
+            dict or list of dicts: Measurement counts
+        """
+        if row_index is not None:
+            return self._deserialize_dict(self.results_df.iloc[row_index]['counts'])
+        return [self._deserialize_dict(counts) for counts in self.results_df['counts']]

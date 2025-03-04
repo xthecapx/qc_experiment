@@ -1,0 +1,43 @@
+\section*{Introduction}
+
+% Industry progress in quantum computing
+% Recent chip developments
+% Error correction advances
+
+In recent years, companies like Google, AWS, IonQ, IBM, and Microsoft have led the race to build a useful quantum computer (QPU). A number of chips, including Willow \cite{acharyaQuantumErrorCorrection2025_2025} and Majorana 1 \cite{aasenRoadmapFaultTolerant2025_2025}, have been released, taking quantum utility one step closer. Something that is common to these state of the art chips, is the improvement in error corrections, which in the case of the Google and Microsoft chips, include the use of randomized benchmarking (RB) at the logical qubits level.
+
+
+% Current metrics for QPU evaluation
+% Add a transition sentence about how these metrics, while valuable for individual QPUs, may not fully capture distributed quantum system capabilities
+
+Benchmarking a QPU is a complex task, since it requires evaluating the performance of a technology built on top of layers of abstraction. Current state-of-the-art differentiates logical qubits from physical qubits, and benchmarking techniques are used to run analyses on top of logical qubits. The reason for that is, physical qubits are not directly accessible and because of the fact that they include algorithms to deal with errors caused by noise and other external factors \cite{campbellRoadsFaulttolerantUniversal2017_2017, tomitaLowdistanceSurfaceCodes_2014}. As a result, the benchmarking of QPU used to involve finding correlations of the errors in terms of quantum volume, total number of qubits, circuit depth and average error gate (calculated with RB) \cite{proctorBenchmarkingQuantumComputers2025_2025}.
+
+% Challenge of evaluating distributed quantum systems
+% Why traditional metrics aren't sufficient for networked quantum computers
+% Need for new metrics that consider communication and coordination between quantum nodes
+
+In the same time that new hardware is being released, it is more evident the need of finding the right metrics to evalue the new hardware and test its performance at a given time. One example of recent metrics is the IBM "layer of fidelity", which include a randomized benchmark in the logical qubit with persistence of the information to compare multiples executions (ref and check definition). As a result, one of the known challenges aimed at the quantum utility era is the definition of a set of useful metrics to evaluate QPUs. Morover, finding the right metrics that help us to validate quantum software in distributed system seems like a natural next step for future benchmarking metrics.
+
+
+% Introduction to quantum teleportation
+% Its role as a fundamental protocol for quantum networks
+% Why it's a good candidate for benchmarking distributed quantum capabilities
+
+Benchmarking distributed system include metrics about the communication and orquestration of the different nodes (ref). In classical computing we have latency and responses times as the main metrics to consider when evaluating nodes, however other metrics related with the computational capacity of each node like CPU and memory utilization could be considered (ref). In the quantum world, the distributed system are doing his first steps when researches achive to run the teleportation protocol between two fisically separated QPU (ref). With that context, we present a novel algorithm to benchmark a single QPU inspired by the teleportation protocol, aiming to use the include the full version of the teleportation algorithm when the distributed system make it into the state of the art.
+
+% Detailed discussion of Random Benchmarking (RB)
+% How RB complements teleportation measurements
+% Connection to real-world quantum network performance
+
+
+% Introduction of the capacity score metric
+% How it combines:
+% - Teleportation success rates
+% - RB results
+% - System performance metrics
+% Advantages over existing metrics
+
+
+% Summary of the contribution
+% Paper structure overview
+% Impact on quantum network evaluation
