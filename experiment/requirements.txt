@@ -1,10 +1,10 @@
-qiskit==1.3.2
-qiskit-aer==0.16
-qiskit-ibm-runtime==0.34
+qiskit==1.4.0
+qiskit-aer==0.16.3
+qiskit-ibm-runtime==0.36.1
 pylatexenc
 qbraid==0.9.3
-ibm-cloud-sdk-core==3.20.3
-ibm-platform-services==0.55.1
+ibm-cloud-sdk-core==3.22.1
+ibm-platform-services==0.59.1
 pydantic-settings
 requests==2.32.3
 dotenv

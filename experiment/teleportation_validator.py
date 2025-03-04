@@ -409,8 +409,8 @@ class TeleportationValidator:
             "num_parameters": self.circuit.num_parameters,
             "has_calibrations": bool(self.circuit.calibrations),
             "has_layout": bool(self.circuit.layout),
-            "duration": self.circuit.estimate_duration() if hasattr(self.circuit, 'estimate_duration') else None,
-            "job_result": job_result  # Include the full job result for additional analysis if needed
+            "duration": job.usage_estimation,
+            "job_result": job_result
         }
 
 class Experiments:
@@ -441,7 +441,6 @@ class Experiments:
             "num_parameters": validator.circuit.num_parameters,
             "has_calibrations": bool(validator.circuit.calibrations),
             "has_layout": bool(validator.circuit.layout),
-            "duration": validator.circuit.estimate_duration() if hasattr(validator.circuit, 'estimate_duration') else None,
             "payload_size": payload_size,
             "num_gates": num_gates,
             "execution_type": execution_type,
@@ -455,7 +454,13 @@ class Experiments:
         if ibm_data:
             result_data.update({
                 "ibm_job_id": ibm_data.get("job_id"),
-                "ibm_backend": ibm_data.get("backend")
+                "ibm_backend": ibm_data.get("backend"),
+                "job_duration": ibm_data.get("metrics", {}).get("usage", {}).get("seconds", 0.0),
+                "job_quantum_duration": ibm_data.get("metrics", {}).get("usage", {}).get("quantum_seconds", 0.0),
+                "job_status": ibm_data.get("status", "error"),
+                "job_created": ibm_data.get("metrics", {}).get("timestamps", {}).get("created"),
+                "job_finished": ibm_data.get("metrics", {}).get("timestamps", {}).get("finished"),
+                "job_running": ibm_data.get("metrics", {}).get("timestamps", {}).get("running")
             })
         
         return result_data
@@ -779,3 +784,210 @@ class Experiments:
         if row_index is not None:
             return self._deserialize_dict(self.results_df.iloc[row_index]['counts'])
         return [self._deserialize_dict(counts) for counts in self.results_df['counts']]
+
+    def update_table_with_job_info(self, input_csv: str, output_csv: str = None):
+        """
+        Updates the experiment results table with IBM job information.
+        Args:
+            input_csv (str): Path to the input CSV file
+            output_csv (str, optional): Path to save the updated CSV. If None, will append '_updated' to input filename
+        Returns:
+            pd.DataFrame: Updated DataFrame with job information
+        """
+        # Read the input CSV
+        df = pd.read_csv(input_csv)
+        
+        # Remove empty duration column if it exists
+        if 'duration' in df.columns:
+            df = df.drop('duration', axis=1)
+        
+        # Create output filename if not provided
+        if output_csv is None:
+            base_name = os.path.splitext(input_csv)[0]
+            output_csv = f"{base_name}_updated.csv"
+        
+        # Create a single service instance
+        if not IBM_QUANTUM_TOKEN:
+            raise ValueError("No IBM Quantum token provided. Please set IBM_QUANTUM_TOKEN in .env file or provide it directly.")
+        
+        service = QiskitRuntimeService(
+            channel=IBM_QUANTUM_CHANNEL,
+            instance='ibm-q/open/main',
+            token=IBM_QUANTUM_TOKEN
+        )
+        
+        # Initialize new columns with appropriate data types
+        df['job_duration'] = pd.Series(dtype='float64')
+        df['job_quantum_duration'] = pd.Series(dtype='float64')
+        df['job_status'] = pd.Series(dtype='object')
+        df['job_success_rate'] = pd.Series(dtype='float64')
+        df['job_created'] = pd.Series(dtype='object')
+        df['job_finished'] = pd.Series(dtype='object')
+        df['job_running'] = pd.Series(dtype='object')
+        df['job_execution_spans'] = pd.Series(dtype='object')
+        df['job_execution_duration'] = pd.Series(dtype='float64')
+        
+        # Process each row with an IBM job ID
+        for idx, row in df.iterrows():
+            if pd.notna(row.get('ibm_job_id')):
+                try:
+                    # Get job using the service instance
+                    job = service.job(row['ibm_job_id'])
+                    job_result = job.result()
+                    
+                    # Get metrics
+                    metrics = job.metrics()
+                    
+                    # Get counts and calculate success rate
+                    counts = job_result[0].data.test_result.get_counts()
+                    bit_string_length = len(next(iter(counts)))
+                    success_count = counts.get('0' * bit_string_length, 0)
+                    total_shots = sum(counts.values())
+                    success_rate = success_count / total_shots
+                    
+                    # Get execution spans from result metadata
+                    execution_spans = job_result.metadata.get('execution', {}).get('execution_spans', [])
+                    
+                    # Calculate execution duration from spans
+                    execution_duration = 0.0
+                    if execution_spans:
+                        for span in execution_spans:
+                            # Access start and stop directly from the span object
+                            start_time = pd.Timestamp(span.start)
+                            stop_time = pd.Timestamp(span.stop)
+                            execution_duration += (stop_time - start_time).total_seconds()
+                    
+                    # Update the row with job information
+                    df.at[idx, 'job_duration'] = metrics.get('usage', {}).get('seconds', 0.0)
+                    df.at[idx, 'job_quantum_duration'] = metrics.get('usage', {}).get('quantum_seconds', 0.0)
+                    df.at[idx, 'job_status'] = 'completed'
+                    df.at[idx, 'job_success_rate'] = success_rate
+                    df.at[idx, 'job_created'] = metrics.get('timestamps', {}).get('created')
+                    df.at[idx, 'job_finished'] = metrics.get('timestamps', {}).get('finished')
+                    df.at[idx, 'job_running'] = metrics.get('timestamps', {}).get('running')
+                    df.at[idx, 'job_execution_spans'] = str(execution_spans)
+                    df.at[idx, 'job_execution_duration'] = execution_duration
+                    
+                    print(f"Updated job {row['ibm_job_id']} information")
+                except Exception as e:
+                    print(f"Error processing job {row['ibm_job_id']}: {str(e)}")
+                    df.at[idx, 'job_status'] = 'error'
+                    df.at[idx, 'job_duration'] = 0.0
+                    df.at[idx, 'job_quantum_duration'] = 0.0
+                    df.at[idx, 'job_success_rate'] = 0.0
+                    df.at[idx, 'job_execution_duration'] = 0.0
+        
+        # Save the updated DataFrame
+        df.to_csv(output_csv, index=False)
+        print(f"Updated results saved to {output_csv}")
+        
+        return df
+
+    def create_table_from_results(self, results_list: list):
+        """
+        Creates a DataFrame from experiment results and adds IBM job information.
+        Args:
+            results_list (list): List of experiment results from the Python file
+        Returns:
+            pd.DataFrame: DataFrame with job information
+        """
+        # Create DataFrame from results
+        rows = []
+        for group in results_list:
+            for experiment in group['experiments']:
+                row = {
+                    'status': experiment['status'],
+                    'circuit_depth': experiment['circuit_metrics']['depth'],
+                    'circuit_width': experiment['circuit_metrics']['width'],
+                    'circuit_size': experiment['circuit_metrics']['size'],
+                    'circuit_count_ops': json.dumps(experiment['circuit_metrics']['count_ops']),
+                    'payload_size': experiment['config_metrics']['payload_size'],
+                    'num_gates': experiment['experiment_params']['num_gates'],
+                    'execution_type': experiment['experiment_params']['execution_type'],
+                    'experiment_type': experiment['experiment_params']['experiment_type'],
+                    'ibm_job_id': experiment.get('ibm_data', {}).get('job_id'),
+                    'ibm_backend': experiment.get('ibm_data', {}).get('backend'),
+                    'counts': json.dumps(experiment.get('results_metrics', {}).get('counts', {})),
+                    'success_rate': experiment.get('results_metrics', {}).get('success_rate', 0.0)
+                }
+                rows.append(row)
+        
+        df = pd.DataFrame(rows)
+        
+        # Create a single service instance
+        if not IBM_QUANTUM_TOKEN:
+            raise ValueError("No IBM Quantum token provided. Please set IBM_QUANTUM_TOKEN in .env file or provide it directly.")
+        
+        service = QiskitRuntimeService(
+            channel=IBM_QUANTUM_CHANNEL,
+            instance='ibm-q/open/main',
+            token=IBM_QUANTUM_TOKEN
+        )
+        
+        # Initialize new columns with appropriate data types
+        df['job_duration'] = pd.Series(dtype='float64')
+        df['job_quantum_duration'] = pd.Series(dtype='float64')
+        df['job_status'] = pd.Series(dtype='object')
+        df['job_success_rate'] = pd.Series(dtype='float64')
+        df['job_created'] = pd.Series(dtype='object')
+        df['job_finished'] = pd.Series(dtype='object')
+        df['job_running'] = pd.Series(dtype='object')
+        df['job_execution_spans'] = pd.Series(dtype='object')
+        df['job_execution_duration'] = pd.Series(dtype='float64')
+        
+        # Process each row with an IBM job ID
+        for idx, row in df.iterrows():
+            if pd.notna(row.get('ibm_job_id')):
+                try:
+                    # Get job using the service instance
+                    job = service.job(row['ibm_job_id'])
+                    job_result = job.result()
+                    
+                    # Get metrics
+                    metrics = job.metrics()
+                    
+                    # Get execution spans from result metadata
+                    execution_spans = job_result.metadata.get('execution', {}).get('execution_spans', [])
+                    
+                    # Calculate execution duration from spans
+                    execution_duration = 0.0
+                    if execution_spans:
+                        for span in execution_spans:
+                            # Access start and stop directly from the span object
+                            start_time = pd.Timestamp(span.start)
+                            stop_time = pd.Timestamp(span.stop)
+                            execution_duration += (stop_time - start_time).total_seconds()
+                    
+                    # Update the row with job information
+                    df.at[idx, 'job_duration'] = metrics.get('usage', {}).get('seconds', 0.0)
+                    df.at[idx, 'job_quantum_duration'] = metrics.get('usage', {}).get('quantum_seconds', 0.0)
+                    df.at[idx, 'job_status'] = 'completed'
+                    df.at[idx, 'job_success_rate'] = row['success_rate']
+                    df.at[idx, 'job_created'] = metrics.get('timestamps', {}).get('created')
+                    df.at[idx, 'job_finished'] = metrics.get('timestamps', {}).get('finished')
+                    df.at[idx, 'job_running'] = metrics.get('timestamps', {}).get('running')
+                    df.at[idx, 'job_execution_spans'] = str(execution_spans)
+                    df.at[idx, 'job_execution_duration'] = execution_duration
+                    
+                    print(f"Updated job {row['ibm_job_id']} information")
+                except Exception as e:
+                    print(f"Error processing job {row['ibm_job_id']}: {str(e)}")
+                    df.at[idx, 'job_status'] = 'error'
+                    df.at[idx, 'job_duration'] = 0.0
+                    df.at[idx, 'job_quantum_duration'] = 0.0
+                    df.at[idx, 'job_success_rate'] = 0.0
+                    df.at[idx, 'job_execution_duration'] = 0.0
+        
+        # Get payload and gates ranges from the data
+        min_payload = df['payload_size'].min()
+        max_payload = df['payload_size'].max()
+        min_gates = df['num_gates'].min()
+        max_gates = df['num_gates'].max()
+        
+        # Export to CSV with timestamp
+        timestamp = pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')
+        output_csv = f'experiment_results_dynamic_{min_payload}-{max_payload}_{min_gates}-{max_gates}_{timestamp}.csv'
+        df.to_csv(output_csv, index=False)
+        print(f"Results exported to {output_csv}")
+        
+        return df
