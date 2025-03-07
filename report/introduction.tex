@@ -16,19 +16,19 @@ Benchmarking a QPU is a complex task, since it requires evaluating the performan
 % Why traditional metrics aren't sufficient for networked quantum computers
 % Need for new metrics that consider communication and coordination between quantum nodes
 
-In the same time that new hardware is being released, it is more evident the need of finding the right metrics to evalue the new hardware and test its performance at a given time. One example of recent metrics is the IBM "layer of fidelity", which include a randomized benchmark in the logical qubit with persistence of the information to compare multiples executions (ref and check definition). As a result, one of the known challenges aimed at the quantum utility era is the definition of a set of useful metrics to evaluate QPUs. Morover, finding the right metrics that help us to validate quantum software in distributed system seems like a natural next step for future benchmarking metrics.
-
+As new hardware is released, it becomes increasingly important to adopt a set of metrics that allow companies to compare against the state-of-the-art QPUs. One recent metric includes IBM's "layer of fidelity", which evaluates the fidelity of two-qubit gates connected over N qubits, allowing us to estimate how many circuits are required for error mitigation \cite{mckayBenchmarkingQuantumProcessor2023_2023}. Consequently, one of the challenges associated with the quantum utility era is defining a set of valuable metrics for evaluating QPUs. Furthermore, finding metrics to validate quantum software in distributed systems seems a natural next step for benchmarking.
 
 % Introduction to quantum teleportation
 % Its role as a fundamental protocol for quantum networks
 % Why it's a good candidate for benchmarking distributed quantum capabilities
 
-Benchmarking distributed system include metrics about the communication and orquestration of the different nodes (ref). In classical computing we have latency and responses times as the main metrics to consider when evaluating nodes, however other metrics related with the computational capacity of each node like CPU and memory utilization could be considered (ref). In the quantum world, the distributed system are doing his first steps when researches achive to run the teleportation protocol between two fisically separated QPU (ref). With that context, we present a novel algorithm to benchmark a single QPU inspired by the teleportation protocol, aiming to use the include the full version of the teleportation algorithm when the distributed system make it into the state of the art.
+In classical computing, a distributed system's performance is measured through throughput and latency, its scalability is tested by examining the workload on the client and server, the availability of the system is often measured by the degradation of throughput caused by failure, and the consistency of the system is often measured by the staleness of data across different locations \cite{andreoliniBenchmarkingModelsTools_2002}. As opposed than classical computing, QC's distributed system is just getting started. As a first step towards distributed QC, researchers have already achieved teleportation between two physically separate QPUs \cite{kangTeleportingTwoqubitEntanglementa_2025}. Our study presents an algorithm inspired by the teleportation protocol for benchmarking a single QPU that is also extendable to benchmark multiple devices by using the complete protocol.
 
 % Detailed discussion of Random Benchmarking (RB)
 % How RB complements teleportation measurements
 % Connection to real-world quantum network performance
 
+In the literature, it is possible to identify multiple methods for creating benchmarks for a single QPU. An example of a commonly used technique is Randomized Benchmarking (RB). The RB technique is based on the fact that the inner product of a gate and its inverse is equal to the identity matrix. Due to this relation, the fidelity of a gate can be determined by ensuring that the algorithm has been correctly executed. There are also several techniques for performing QC benchmarks, including: high-level holistic benchmarking like quantum volume, noisy intermediate scale quantum algorithms, quantum error correction algorithms, computational problems and many-quibit standard; low-level holistic benchmarking, like mirror circuits, algorithmic benchmarks, direct RB and cross-entropy; and low-level component benchmarking, such as tomographic methods and cycle benchmarking.
 
 % Introduction of the capacity score metric
 % How it combines:
@@ -36,6 +36,8 @@ Benchmarking distributed system include metrics about the communication and orqu
 % - RB results
 % - System performance metrics
 % Advantages over existing metrics
+
+
 
 
 % Summary of the contribution
