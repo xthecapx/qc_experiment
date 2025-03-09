@@ -6,6 +6,9 @@ from mpl_toolkits.mplot3d import Axes3D  # For 3D plotting
 from matplotlib import patches
 import os
 import ast
+from statsmodels.stats.diagnostic import het_breuschpagan, het_white
+from statsmodels.stats.stattools import jarque_bera
+from statsmodels.graphics.gofplots import ProbPlot
 
 # ColorBrewer colorblind-friendly palette
 COLORBREWER_PALETTE = {
@@ -1847,6 +1850,358 @@ def analyze_job_execution_times(df):
     print(summary_df.to_string(index=False, float_format=lambda x: f"{x:.2f}"))
     
     return df[['queue_time', 'total_time', 'execution_time']]
+
+def analyze_regression_models(df):
+    """
+    Implement and evaluate multiple regression models to predict success rates
+    based on circuit parameters (circuit_depth, circuit_size, circuit_width, payload_size).
+    
+    Args:
+        df (pd.DataFrame): DataFrame containing experiment results.
+        
+    Returns:
+        dict: Dictionary containing regression results and model comparisons.
+    """
+    import statsmodels.api as sm
+    import numpy as np
+    import pandas as pd
+    from statsmodels.stats.diagnostic import het_breuschpagan, het_white
+    from statsmodels.stats.stattools import jarque_bera
+    import matplotlib.pyplot as plt
+    from statsmodels.graphics.gofplots import ProbPlot
+    
+    # Ensure we have a clean dataframe with the required columns
+    required_cols = ['success_rate', 'circuit_depth', 'circuit_size', 'circuit_width', 'payload_size']
+    for col in required_cols:
+        if col not in df.columns:
+            raise ValueError(f"Required column '{col}' not found in DataFrame")
+    
+    # Create a working copy of the dataframe with only the columns we need
+    model_df = df[required_cols].copy()
+    
+    # Check for missing values
+    if model_df.isnull().sum().sum() > 0:
+        print("Warning: DataFrame contains missing values. Dropping rows with missing values.")
+        model_df = model_df.dropna()
+    
+    # Store results for comparison
+    model_results = {}
+    
+    # Function to evaluate model and check assumptions
+    def evaluate_model(model, X, y, model_name):
+        # Get predictions and residuals
+        y_pred = model.predict(X)
+        residuals = y - y_pred
+        
+        # Calculate metrics
+        r_squared = model.rsquared
+        adj_r_squared = model.rsquared_adj
+        aic = model.aic
+        bic = model.bic
+        
+        # Test for heteroscedasticity - with error handling
+        try:
+            bp_test = het_breuschpagan(residuals, X)
+            bp_pvalue = bp_test[1]
+        except Exception as e:
+            print(f"Warning: Breusch-Pagan test failed: {str(e)}")
+            bp_test = (np.nan, np.nan, np.nan, np.nan)
+            bp_pvalue = np.nan
+        
+        try:
+            white_test = het_white(residuals, X)
+            white_pvalue = white_test[1]
+        except Exception as e:
+            print(f"Warning: White test failed: {str(e)}")
+            white_test = (np.nan, np.nan, np.nan, np.nan)
+            white_pvalue = np.nan
+        
+        # Test for normality of residuals
+        try:
+            jb_test = jarque_bera(residuals)
+            jb_pvalue = jb_test[1]
+        except Exception as e:
+            print(f"Warning: Jarque-Bera test failed: {str(e)}")
+            jb_test = (np.nan, np.nan)
+            jb_pvalue = np.nan
+        
+        # Store results
+        result = {
+            'model': model,
+            'r_squared': r_squared,
+            'adj_r_squared': adj_r_squared,
+            'aic': aic,
+            'bic': bic,
+            'bp_test': bp_test,
+            'white_test': white_test,
+            'jb_test': jb_test,
+            'residuals': residuals,
+            'y_pred': y_pred
+        }
+        
+        model_results[model_name] = result
+        
+        # Print summary
+        print(f"\n=== {model_name} ===")
+        print(f"R-squared: {r_squared:.4f}")
+        print(f"Adjusted R-squared: {adj_r_squared:.4f}")
+        print(f"AIC: {aic:.4f}")
+        print(f"BIC: {bic:.4f}")
+        print(f"Breusch-Pagan test (p-value): {bp_pvalue:.4f}" if not np.isnan(bp_pvalue) else "Breusch-Pagan test: Failed")
+        print(f"White test (p-value): {white_pvalue:.4f}" if not np.isnan(white_pvalue) else "White test: Failed")
+        print(f"Jarque-Bera test (p-value): {jb_pvalue:.4f}" if not np.isnan(jb_pvalue) else "Jarque-Bera test: Failed")
+        
+        # Interpretation of heteroscedasticity tests
+        alpha = 0.05
+        if not np.isnan(bp_pvalue) and not np.isnan(white_pvalue):
+            if bp_pvalue < alpha or white_pvalue < alpha:
+                print("Evidence of heteroscedasticity detected (p < 0.05)")
+            else:
+                print("No significant heteroscedasticity detected (p >= 0.05)")
+        else:
+            print("Heteroscedasticity tests inconclusive due to test failures")
+        
+        # Interpretation of normality test
+        if not np.isnan(jb_pvalue):
+            if jb_pvalue < alpha:
+                print("Residuals are not normally distributed (p < 0.05)")
+            else:
+                print("Residuals appear normally distributed (p >= 0.05)")
+        else:
+            print("Normality test inconclusive due to test failure")
+        
+        return result
+    
+    # Function to plot residual diagnostics
+    def plot_residual_diagnostics(result, model_name):
+        model = result['model']
+        residuals = result['residuals']
+        y_pred = result['y_pred']
+        
+        try:
+            fig, axes = plt.subplots(2, 2, figsize=(15, 12))
+            fig.suptitle(f'Residual Diagnostics for {model_name}', fontsize=16)
+            
+            # Residuals vs Fitted plot
+            axes[0, 0].scatter(y_pred, residuals)
+            axes[0, 0].axhline(y=0, color='r', linestyle='-')
+            axes[0, 0].set_xlabel('Fitted values')
+            axes[0, 0].set_ylabel('Residuals')
+            axes[0, 0].set_title('Residuals vs Fitted')
+            
+            # QQ plot
+            QQ = ProbPlot(residuals)
+            QQ.qqplot(line='45', ax=axes[0, 1])
+            axes[0, 1].set_title('Normal Q-Q')
+            
+            # Scale-Location plot
+            axes[1, 0].scatter(y_pred, np.sqrt(np.abs(residuals)))
+            axes[1, 0].set_xlabel('Fitted values')
+            axes[1, 0].set_ylabel('√|Residuals|')
+            axes[1, 0].set_title('Scale-Location')
+            
+            # Residuals vs Leverage plot
+            try:
+                influence = model.get_influence()
+                leverage = influence.hat_matrix_diag
+                axes[1, 1].scatter(leverage, residuals)
+                axes[1, 1].axhline(y=0, color='r', linestyle='-')
+                axes[1, 1].set_xlabel('Leverage')
+                axes[1, 1].set_ylabel('Residuals')
+                axes[1, 1].set_title('Residuals vs Leverage')
+            except Exception as e:
+                print(f"Warning: Could not calculate leverage for {model_name}: {str(e)}")
+                axes[1, 1].text(0.5, 0.5, "Leverage calculation failed", 
+                               ha='center', va='center', transform=axes[1, 1].transAxes)
+            
+            plt.tight_layout(rect=[0, 0, 1, 0.96])
+            plt.savefig(f'{model_name.replace(":", "_")}_residual_diagnostics.png', dpi=300, bbox_inches='tight')
+            plt.close()
+        except Exception as e:
+            print(f"Warning: Could not create diagnostic plots for {model_name}: {str(e)}")
+    
+    # Prepare target variable and features
+    y = model_df['success_rate']
+    
+    # Model 1: Linear model with all features
+    X1 = model_df[['circuit_depth', 'circuit_size', 'circuit_width', 'payload_size']]
+    X1 = sm.add_constant(X1)
+    model1 = sm.OLS(y, X1).fit()
+    print("\nModel 1: All features (linear)")
+    print(model1.summary())
+    evaluate_model(model1, X1, y, "Model 1: All features (linear)")
+    
+    # Model 2: Log-transformed target variable
+    # This can help with heteroscedasticity
+    # Adding a small constant to avoid log(0)
+    y_log = np.log(y + 0.001)
+    model2 = sm.OLS(y_log, X1).fit()
+    print("\nModel 2: Log-transformed target")
+    print(model2.summary())
+    evaluate_model(model2, X1, y_log, "Model 2: Log-transformed target")
+    
+    # Model 3: Interaction terms
+    # Create interaction terms between payload_size and other features
+    X3 = X1.copy()
+    X3['depth_x_payload'] = model_df['circuit_depth'] * model_df['payload_size']
+    X3['size_x_payload'] = model_df['circuit_size'] * model_df['payload_size']
+    X3['width_x_payload'] = model_df['circuit_width'] * model_df['payload_size']
+    model3 = sm.OLS(y, X3).fit()
+    print("\nModel 3: With interaction terms")
+    print(model3.summary())
+    evaluate_model(model3, X3, y, "Model 3: With interaction terms")
+    
+    # Model 4: Polynomial terms (quadratic)
+    # Check for multicollinearity before creating the model
+    X4 = X1.copy()
+    X4['circuit_depth_sq'] = model_df['circuit_depth'] ** 2
+    X4['circuit_size_sq'] = model_df['circuit_size'] ** 2
+    X4['circuit_width_sq'] = model_df['circuit_width'] ** 2
+    X4['payload_size_sq'] = model_df['payload_size'] ** 2
+    
+    # Check condition number to detect multicollinearity
+    from statsmodels.stats.outliers_influence import variance_inflation_factor
+    print("\nChecking for multicollinearity in Model 4:")
+    try:
+        for i, col in enumerate(X4.columns):
+            if col != 'const':
+                vif = variance_inflation_factor(X4.values, i)
+                print(f"VIF for {col}: {vif:.2f}")
+                if vif > 10:
+                    print(f"  Warning: High multicollinearity detected for {col}")
+    except Exception as e:
+        print(f"Warning: Could not calculate VIF: {str(e)}")
+    
+    model4 = sm.OLS(y, X4).fit()
+    print("\nModel 4: With quadratic terms")
+    print(model4.summary())
+    evaluate_model(model4, X4, y, "Model 4: With quadratic terms")
+    
+    # Model 5: Feature selection based on p-values
+    # Start with all features and remove insignificant ones
+    X5 = X1.copy()
+    
+    # Iteratively remove features with p-value > 0.05
+    while True:
+        model5 = sm.OLS(y, X5).fit()
+        p_values = model5.pvalues
+        max_p_value = p_values.max()
+        
+        # If all p-values are significant, break
+        if max_p_value <= 0.05:
+            break
+            
+        # Remove the feature with the highest p-value
+        feature_to_remove = p_values.idxmax()
+        
+        # Don't remove the constant
+        if feature_to_remove == 'const':
+            break
+            
+        print(f"Removing feature {feature_to_remove} with p-value {max_p_value:.4f}")
+        X5 = X5.drop(feature_to_remove, axis=1)
+        
+        # If only constant is left, break
+        if X5.shape[1] <= 1:
+            break
+    
+    print("\nModel 5: Feature selection based on p-values")
+    print(model5.summary())
+    evaluate_model(model5, X5, y, "Model 5: Feature selection")
+    
+    # Plot residual diagnostics for all models
+    for name, result in model_results.items():
+        plot_residual_diagnostics(result, name)
+    
+    # Compare models and select the best one
+    print("\n=== Model Comparison ===")
+    comparison_df = pd.DataFrame({
+        'Model': list(model_results.keys()),
+        'R-squared': [result['r_squared'] for result in model_results.values()],
+        'Adj R-squared': [result['adj_r_squared'] for result in model_results.values()],
+        'AIC': [result['aic'] for result in model_results.values()],
+        'BIC': [result['bic'] for result in model_results.values()],
+        'BP Test p-value': [result['bp_test'][1] if not np.isnan(result['bp_test'][1]) else np.nan 
+                           for result in model_results.values()],
+        'White Test p-value': [result['white_test'][1] if not np.isnan(result['white_test'][1]) else np.nan 
+                              for result in model_results.values()],
+        'JB Test p-value': [result['jb_test'][1] if not np.isnan(result['jb_test'][1]) else np.nan 
+                           for result in model_results.values()]
+    })
+    
+    print(comparison_df)
+    
+    # Determine best model based on adjusted R-squared and diagnostic tests
+    best_models = comparison_df.sort_values('Adj R-squared', ascending=False)
+    print("\nModels ranked by Adjusted R-squared:")
+    print(best_models[['Model', 'Adj R-squared']])
+    
+    # Check for models with no heteroscedasticity
+    homoscedastic_models = comparison_df[
+        (comparison_df['BP Test p-value'] > 0.05) & 
+        (comparison_df['White Test p-value'] > 0.05)
+    ]
+    
+    if not homoscedastic_models.empty:
+        print("\nModels with homoscedasticity (no heteroscedasticity detected):")
+        print(homoscedastic_models[['Model', 'Adj R-squared', 'BP Test p-value', 'White Test p-value']])
+        best_model = homoscedastic_models.sort_values('Adj R-squared', ascending=False).iloc[0]
+        print(f"\nRecommended model: {best_model['Model']}")
+    else:
+        print("\nAll models show signs of heteroscedasticity or test failures.")
+        print("Consider using robust standard errors or weighted least squares.")
+        best_model = best_models.iloc[0]
+        print(f"\nRecommended model (despite heteroscedasticity): {best_model['Model']}")
+        
+        # Get the best model and apply robust standard errors
+        best_model_name = best_model['Model']
+        best_model_obj = model_results[best_model_name]['model']
+        
+        # Apply robust standard errors (HC3 is a good default choice)
+        try:
+            robust_model = best_model_obj.get_robustcov_results(cov_type='HC3')
+            print("\nBest model with robust standard errors:")
+            print(robust_model.summary())
+        except Exception as e:
+            print(f"Warning: Could not apply robust standard errors: {str(e)}")
+    
+    # Model 6: Weighted Least Squares (if heteroscedasticity is detected)
+    # Use the absolute residuals from the best model to estimate weights
+    try:
+        best_model_name = best_models.iloc[0]['Model']
+        best_model_residuals = model_results[best_model_name]['residuals']
+        
+        # Fit a model to predict the absolute residuals
+        abs_resid = np.abs(best_model_residuals)
+        mod_resid = sm.OLS(abs_resid, X1).fit()
+        
+        # Use fitted values as weights
+        weights = 1 / (mod_resid.fittedvalues ** 2)
+        
+        # Fit WLS model
+        wls_model = sm.WLS(y, X1, weights=weights).fit()
+        print("\nModel 6: Weighted Least Squares")
+        print(wls_model.summary())
+        
+        # Add to model results
+        X6 = X1.copy()
+        evaluate_model(wls_model, X6, y, "Model 6: Weighted Least Squares")
+    except Exception as e:
+        print(f"Warning: Could not fit Weighted Least Squares model: {str(e)}")
+    
+    # Model 7: Robust Regression (if outliers are suspected)
+    try:
+        rlm_model = sm.RLM(y, X1, M=sm.robust.norms.HuberT()).fit()
+        print("\nModel 7: Robust Regression (Huber's T)")
+        print(rlm_model.summary())
+        
+        # Add to model results
+        X7 = X1.copy()
+        evaluate_model(rlm_model, X7, y, "Model 7: Robust Regression")
+    except Exception as e:
+        print(f"Warning: Could not fit Robust Regression model: {str(e)}")
+    
+    return model_results
 
 if __name__ == "__main__":
     # Example of using multiple CSV files

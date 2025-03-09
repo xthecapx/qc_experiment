@@ -8,3 +8,4 @@ ibm-platform-services==0.59.1
 pydantic-settings
 requests==2.32.3
 dotenv
+statsmodels
