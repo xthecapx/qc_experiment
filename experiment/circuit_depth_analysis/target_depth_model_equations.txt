@@ -1,0 +1,62 @@
+# Target Depth Experiment Regression Models
+
+Model 1: All features (linear):
+success_rate = 0.299562 + 0.002312 * circuit_depth - 0.001546 * circuit_size + 0.131022 * circuit_width - 0.383832 * payload_size
+
+R-squared: 0.6578
+Adjusted R-squared: 0.6523
+AIC: -160.0054
+BIC: -147.0173
+
+--------------------------------------------------------------------------------
+
+Model 2: Log-transformed target:
+success_rate = 0.207587 + 0.014493 * circuit_depth - 0.009495 * circuit_size - 0.071598 * circuit_width - 0.347179 * payload_size
+
+R-squared: 0.8124
+Adjusted R-squared: 0.8093
+AIC: 253.1015
+BIC: 266.0896
+
+--------------------------------------------------------------------------------
+
+Model 3: With interaction terms:
+success_rate = 0.334940 + 0.012006 * circuit_depth - 0.014753 * circuit_size + 0.151203 * circuit_width - 0.426808 * payload_size + 0.004378 * depth_x_payload + 0.001592 * size_x_payload - 0.005293 * width_x_payload
+
+R-squared: 0.7090
+Adjusted R-squared: 0.6995
+AIC: -184.8088
+BIC: -162.0796
+
+--------------------------------------------------------------------------------
+
+Model 4: With quadratic terms:
+success_rate = 0.335443 - 0.003851 * circuit_depth - 0.005216 * circuit_size + 0.345836 * circuit_width - 0.330247 * payload_size + 0.000211 * circuit_depth_sq + 0.000012 * circuit_size_sq - 0.049676 * circuit_width_sq + 0.223575 * payload_size_sq
+
+R-squared: 0.7106
+Adjusted R-squared: 0.7011
+AIC: -185.8202
+BIC: -163.0911
+
+--------------------------------------------------------------------------------
+
+Model 5: Feature selection:
+success_rate = 0.318325 - 0.000827 * circuit_size + 0.138070 * circuit_width - 0.408452 * payload_size
+
+R-squared: 0.6559
+Adjusted R-squared: 0.6522
+AIC: -160.9190
+BIC: -151.1780
+
+--------------------------------------------------------------------------------
+
+Model 6: Weighted Least Squares:
+success_rate = 0.264635 + 0.002728 * circuit_depth - 0.001373 * circuit_size + 0.117153 * circuit_width - 0.338376 * payload_size
+
+R-squared: 0.7006
+Adjusted R-squared: 0.6958
+AIC: -221.0838
+BIC: -208.0957
+
+--------------------------------------------------------------------------------
+

@@ -1,3 +1,0 @@
-Model Equations:
-Model 2: log(success_rate + 0.001) = 0.3464 - 7.4691e-06 × circuit_depth - 1.3186e-06 × circuit_size - 7.4778e-02 × circuit_width - 5.5700e-01 × payload_size 
-Model 6: success_rate = 0.2467 + 1.0817e-05 × circuit_depth - 7.7292e-06 × circuit_size + 1.0180e-01 × circuit_width - 3.1909e-01 × payload_size 
