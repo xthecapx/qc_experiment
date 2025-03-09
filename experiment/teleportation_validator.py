@@ -1,4 +1,4 @@
-from qiskit import QuantumCircuit, QuantumRegister, ClassicalRegister
+from qiskit import QuantumCircuit, QuantumRegister, ClassicalRegister, transpile
 from qiskit_aer import AerSimulator
 from qiskit_ibm_runtime import QiskitRuntimeService, SamplerV2 as Sampler
 from qiskit.transpiler.preset_passmanagers import generate_preset_pass_manager
@@ -11,6 +11,7 @@ import json
 import matplotlib.pyplot as plt
 from dotenv import load_dotenv
 from results import results_1_4_2000_2005
+from qiskit.providers.fake_provider import GenericBackendV2
 
 # Load environment variables
 load_dotenv()
@@ -233,7 +234,7 @@ class TeleportationValidator:
             
         return data
     
-    def run_simulation(self):
+    def run_simulation(self, show_histogram=True):
         # Get simulation results
         data = self._simulate()
         
@@ -255,7 +256,7 @@ class TeleportationValidator:
             "num_parameters": self.circuit.num_parameters,
             "has_calibrations": bool(self.circuit.calibrations),
             "has_layout": bool(self.circuit.layout),
-            "duration": self.circuit.estimate_duration() if hasattr(self.circuit, 'estimate_duration') else None
+            # "duration": self.circuit.estimate_duration() if hasattr(self.circuit, 'estimate_duration') else None
         }
         
         # Configuration metrics
@@ -273,7 +274,8 @@ class TeleportationValidator:
                 # Single gate case
                 gate_distribution[qubit_gates.name] = gate_distribution.get(qubit_gates.name, 0) + 1
         
-        display(plot_histogram(data['counts']))
+        if show_histogram:
+            display(plot_histogram(data['counts']))
         
         if self.save_statevector:
             print("\nState vector after payload:")
@@ -738,6 +740,251 @@ class Experiments:
         self.results_df.to_csv(filename, index=False)
         print(f"Results exported to {filename}")
 
+    def run_controlled_depth_experiment(self, payload_sizes: list = [1, 2, 3, 4, 5], max_depth: int = 5, 
+                                      run_on_ibm: bool = False, channel: str = IBM_QUANTUM_CHANNEL, token: str = IBM_QUANTUM_TOKEN,
+                                      show_circuit: bool = False, show_histogram: bool = False):
+        """
+        Run an experiment with controlled circuit depth.
+        
+        For each payload size, the number of gates increases proportionally to maintain a controlled depth increase:
+        - For payload_size=1: gates increase by 1 per experiment
+        - For payload_size=2: gates increase by 2 per experiment
+        - For payload_size=3: gates increase by 3 per experiment
+        And so on.
+        
+        The base circuit depth is approximately 9 (with payload_size=1 and gates=1).
+        
+        Args:
+            payload_sizes: List of payload sizes to test
+            max_depth: Number of depth increments to test for each payload size
+            run_on_ibm: Whether to run on IBM quantum hardware
+            channel: IBM Quantum channel
+            token: IBM Quantum token
+            show_circuit: Whether to display the circuit diagram
+            show_histogram: Whether to display histograms of measurement results
+        """
+        results = []
+        
+        for payload_size in payload_sizes:
+            print(f"\nRunning experiments for payload_size={payload_size}")
+            
+            for depth_increment in range(0, max_depth + 1):
+                # Calculate gates based on payload size and depth increment
+                gates = depth_increment * payload_size
+                
+                print(f"  Running experiment with payload_size={payload_size}, gates={gates}")
+                
+                use_barriers = not run_on_ibm
+                validator = TeleportationValidator(
+                    payload_size=payload_size,
+                    gates=gates,
+                    use_barriers=use_barriers
+                )
+                
+                if show_circuit:
+                    display(validator.draw())
+                
+                # Determine actual execution type based on result
+                execution_type = "simulation"
+                if run_on_ibm and channel and token:
+                    ibm_result = validator.run_on_ibm(channel, token)
+                    if ibm_result["status"] == "completed" or ibm_result["status"] == "pending":
+                        execution_type = "ibm"
+                    
+                    result_data = self._prepare_result_data(
+                        validator=validator,
+                        status=ibm_result["status"],
+                        execution_type=execution_type,
+                        experiment_type="controlled_depth_experiment",
+                        payload_size=payload_size,
+                        num_gates=gates
+                    )
+                    
+                    if ibm_result["status"] == "completed":
+                        result_data.update({
+                            "counts": self._serialize_dict(ibm_result["counts"]),
+                            "success_rate": ibm_result["counts"].get('0' * payload_size, 0) / sum(ibm_result["counts"].values()),
+                            "ibm_job_id": ibm_result.get("job_id"),
+                            "ibm_backend": ibm_result.get("backend")
+                        })
+                    elif ibm_result["status"] == "error":
+                        # Fallback to simulation if IBM execution failed
+                        sim_result = validator.run_simulation(show_histogram=show_histogram)
+                        result_data.update({
+                            "status": "completed",
+                            "counts": self._serialize_dict(sim_result["results_metrics"]["counts"]),
+                            "success_rate": sim_result["results_metrics"]["success_rate"],
+                            "ibm_error": ibm_result.get("error")
+                        })
+                else:
+                    sim_result = validator.run_simulation(show_histogram=show_histogram)
+                    result_data = self._prepare_result_data(
+                        validator=validator,
+                        status="completed",
+                        execution_type="simulation",
+                        experiment_type="controlled_depth_experiment",
+                        payload_size=payload_size,
+                        num_gates=gates,
+                        counts=sim_result["results_metrics"]["counts"],
+                        success_rate=sim_result["results_metrics"]["success_rate"]
+                    )
+                
+                # Append to DataFrame
+                self.results_df = pd.concat([self.results_df, pd.DataFrame([result_data])], ignore_index=True)
+                print(f"  Experiment completed with status: {result_data['status']}, circuit depth: {validator.circuit.depth()}")
+        
+        # Export results to CSV with timestamp
+        timestamp = pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')
+        self.export_to_csv(f'experiment_results_controlled_depth_{timestamp}.csv')
+        
+        return self.results_df
+
+    def run_target_depth_experiment(self, target_depths: list = None, max_payload_size: int = 5,
+                                  run_on_ibm: bool = False, channel: str = IBM_QUANTUM_CHANNEL, token: str = IBM_QUANTUM_TOKEN,
+                                  show_circuit: bool = False, show_histogram: bool = False, min_experiments_per_depth: int = 5):
+        """
+        Run experiments with specific target circuit depths using various combinations of payload size and gates.
+        
+        For each target depth, this method generates combinations of payload size and gates that should
+        produce that depth, then runs experiments for each combination to compare success rates.
+        
+        If there are fewer valid combinations than min_experiments_per_depth, it will duplicate the valid
+        combinations to reach the desired number of experiments.
+        
+        Based on empirical results, the actual depth formula is:
+        - Base depth with 0 gates = 13 + 2 * (payload_size - 1)
+        - Depth with gates = base_depth + 2 * (gates / payload_size) - 2
+        
+        Args:
+            target_depths: List of specific circuit depths to target (if None, uses [13, 15, 17, ..., 49])
+            max_payload_size: Maximum payload size to consider
+            run_on_ibm: Whether to run on IBM quantum hardware
+            channel: IBM Quantum channel
+            token: IBM Quantum token
+            show_circuit: Whether to display the circuit diagram
+            show_histogram: Whether to display histograms of measurement results
+            min_experiments_per_depth: Minimum number of different combinations to run for each depth
+        """
+        if target_depths is None:
+            target_depths = list(range(13, 50, 2))  # [13, 15, 17, ..., 49]
+        
+        # Generate combinations for each target depth
+        all_combinations = []
+        for depth in target_depths:
+            valid_combinations = []
+            
+            # Find valid combinations that produce the exact target depth
+            for payload_size in range(1, max_payload_size + 1):
+                # Calculate base depth for this payload size
+                base_depth = 13 + 2 * (payload_size - 1)
+                
+                # If target depth is less than base depth, skip this payload size
+                if depth < base_depth:
+                    continue
+                
+                # Calculate required gates to achieve target depth
+                # Corrected formula based on empirical results:
+                # depth = base_depth + 2 * (gates / payload_size) - 2
+                # Solving for gates: gates = (depth - base_depth + 2) * payload_size / 2
+                required_gates = (depth - base_depth + 2) * payload_size / 2
+                
+                # Only add if required_gates is a non-negative integer
+                if required_gates >= 0 and required_gates.is_integer():
+                    valid_combinations.append((payload_size, int(required_gates)))
+            
+            # If we have valid combinations, duplicate them to reach min_experiments_per_depth
+            if valid_combinations:
+                # Duplicate combinations if needed
+                combinations_to_run = []
+                while len(combinations_to_run) < min_experiments_per_depth:
+                    for combo in valid_combinations:
+                        if len(combinations_to_run) < min_experiments_per_depth:
+                            combinations_to_run.append(combo)
+                        else:
+                            break
+                
+                all_combinations.append((depth, combinations_to_run))
+        
+        # Run experiments for each valid combination
+        for depth, combinations in all_combinations:
+            print(f"\nRunning experiments for target depth: {depth} ({len(combinations)} combinations)")
+            
+            for payload_size, gates in combinations:
+                print(f"  Running experiment with payload_size={payload_size}, gates={gates}")
+                
+                use_barriers = not run_on_ibm
+                validator = TeleportationValidator(
+                    payload_size=payload_size,
+                    gates=gates,
+                    use_barriers=use_barriers
+                )
+                
+                if show_circuit:
+                    display(validator.draw())
+                
+                # Determine actual execution type based on result
+                execution_type = "simulation"
+                if run_on_ibm and channel and token:
+                    ibm_result = validator.run_on_ibm(channel, token)
+                    if ibm_result["status"] == "completed" or ibm_result["status"] == "pending":
+                        execution_type = "ibm"
+                    
+                    result_data = self._prepare_result_data(
+                        validator=validator,
+                        status=ibm_result["status"],
+                        execution_type=execution_type,
+                        experiment_type="target_depth_experiment",
+                        payload_size=payload_size,
+                        num_gates=gates
+                    )
+                    
+                    if ibm_result["status"] == "completed":
+                        result_data.update({
+                            "counts": self._serialize_dict(ibm_result["counts"]),
+                            "success_rate": ibm_result["counts"].get('0' * payload_size, 0) / sum(ibm_result["counts"].values()),
+                            "ibm_job_id": ibm_result.get("job_id"),
+                            "ibm_backend": ibm_result.get("backend"),
+                            "target_depth": depth
+                        })
+                    elif ibm_result["status"] == "error":
+                        # Fallback to simulation if IBM execution failed
+                        sim_result = validator.run_simulation(show_histogram=show_histogram)
+                        result_data.update({
+                            "status": "completed",
+                            "counts": self._serialize_dict(sim_result["results_metrics"]["counts"]),
+                            "success_rate": sim_result["results_metrics"]["success_rate"],
+                            "ibm_error": ibm_result.get("error"),
+                            "target_depth": depth
+                        })
+                else:
+                    sim_result = validator.run_simulation(show_histogram=show_histogram)
+                    result_data = self._prepare_result_data(
+                        validator=validator,
+                        status="completed",
+                        execution_type="simulation",
+                        experiment_type="target_depth_experiment",
+                        payload_size=payload_size,
+                        num_gates=gates,
+                        counts=sim_result["results_metrics"]["counts"],
+                        success_rate=sim_result["results_metrics"]["success_rate"]
+                    )
+                    result_data["target_depth"] = depth
+                
+                # Append to DataFrame
+                self.results_df = pd.concat([self.results_df, pd.DataFrame([result_data])], ignore_index=True)
+                actual_depth = validator.circuit.depth()
+                print(f"  Experiment completed with status: {result_data['status']}, target depth: {depth}, actual depth: {actual_depth}")
+                
+                # Verify if actual depth matches target depth
+                if actual_depth != depth:
+                    print(f"  WARNING: Actual depth {actual_depth} does not match target depth {depth}")
+        
+        # Export results to CSV with timestamp
+        timestamp = pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')
+        self.export_to_csv(f'experiment_results_target_depth_{timestamp}.csv')
+        
+        return self.results_df
+
     @classmethod
     def from_csv(cls, filename: str = 'experiment_results.csv'):
         """
@@ -987,319 +1234,6 @@ class Experiments:
         # Export to CSV with timestamp
         timestamp = pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')
         output_csv = f'experiment_results_dynamic_{min_payload}-{max_payload}_{min_gates}-{max_gates}_{timestamp}.csv'
-        df.to_csv(output_csv, index=False)
-        print(f"Results exported to {output_csv}")
-        
-        return df
-        """
-        Creates a DataFrame from a list of IBM job IDs, optionally merging with an existing CSV file.
-        
-        Args:
-            job_ids (list): List of IBM job IDs to process
-            output_csv (str, optional): Path to save the output CSV. If None, will append '_updated' to input filename
-                                        or generate a timestamped filename if no input CSV is provided
-            input_csv (str, optional): Path to an existing CSV file to merge with
-            
-        Returns:
-            pd.DataFrame: DataFrame with job information
-        """
-        # Create a single service instance
-        if not IBM_QUANTUM_TOKEN:
-            raise ValueError("No IBM Quantum token provided. Please set IBM_QUANTUM_TOKEN in .env file or provide it directly.")
-        
-        service = QiskitRuntimeService(
-            channel=IBM_QUANTUM_CHANNEL,
-            instance='ibm-q/open/main',
-            token=IBM_QUANTUM_TOKEN
-        )
-        
-        # Initialize DataFrame
-        if input_csv and os.path.exists(input_csv):
-            print(f"Reading existing CSV file: {input_csv}")
-            df = pd.read_csv(input_csv)
-            
-            # Check if we need to add job_id column
-            if 'ibm_job_id' not in df.columns:
-                df['ibm_job_id'] = pd.Series(dtype='object')
-                
-            # Add job IDs that are not already in the CSV
-            existing_job_ids = df['ibm_job_id'].dropna().tolist()
-            new_job_ids = [job_id for job_id in job_ids if job_id not in existing_job_ids]
-            
-            # Add new rows for new job IDs
-            for job_id in new_job_ids:
-                df = pd.concat([df, pd.DataFrame([{'ibm_job_id': job_id}])], ignore_index=True)
-                
-            print(f"Added {len(new_job_ids)} new job IDs to existing data")
-            
-            # Create output filename if not provided
-            if output_csv is None:
-                base_name = os.path.splitext(input_csv)[0]
-                output_csv = f"{base_name}_updated.csv"
-        else:
-            # Create new DataFrame with job IDs
-            df = pd.DataFrame({'ibm_job_id': job_ids})
-            print(f"Created new DataFrame with {len(job_ids)} job IDs")
-            
-            # Create output filename if not provided
-            if output_csv is None:
-                timestamp = pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')
-                output_csv = f'job_results_{timestamp}.csv'
-        
-        # Initialize or ensure columns exist with appropriate data types
-        for col in ['status', 'circuit_depth', 'circuit_width', 'circuit_size', 
-                   'circuit_count_ops', 'num_qubits', 'num_clbits', 'num_ancillas',
-                   'num_parameters', 'has_calibrations', 'has_layout', 'payload_size', 
-                   'num_gates', 'execution_type', 'experiment_type', 'ibm_backend', 
-                   'counts', 'success_rate']:
-            if col not in df.columns:
-                df[col] = pd.Series(dtype='object')
-        
-        # Initialize job info columns
-        for col, dtype in [
-            ('job_duration', 'float64'),
-            ('job_quantum_duration', 'float64'),
-            ('job_status', 'object'),
-            ('job_success_rate', 'float64'),
-            ('job_created', 'object'),
-            ('job_finished', 'object'),
-            ('job_running', 'object'),
-            ('job_execution_spans', 'object'),
-            ('job_execution_duration', 'float64')
-        ]:
-            df[col] = pd.Series(dtype=dtype)
-        
-        # Process each row with an IBM job ID
-        for idx, row in df.iterrows():
-            if pd.notna(row.get('ibm_job_id')):
-                try:
-                    # Get job using the service instance
-                    job = service.job(row['ibm_job_id'])
-                    job_result = job.result()
-                    
-                    # Get metrics
-                    metrics = job.metrics()
-                    
-                    # Get counts and calculate success rate
-                    counts = job_result[0].data.test_result.get_counts()
-                    bit_string_length = len(next(iter(counts)))
-                    success_count = counts.get('0' * bit_string_length, 0)
-                    total_shots = sum(counts.values())
-                    success_rate = success_count / total_shots
-                    
-                    # Get execution spans from result metadata
-                    execution_spans = job_result.metadata.get('execution', {}).get('execution_spans', [])
-                    
-                    # Calculate execution duration from spans
-                    execution_duration = 0.0
-                    if execution_spans:
-                        for span in execution_spans:
-                            # Access start and stop directly from the span object
-                            start_time = pd.Timestamp(span.start)
-                            stop_time = pd.Timestamp(span.stop)
-                            execution_duration += (stop_time - start_time).total_seconds()
-                    
-                    # Get backend information
-                    backend_name = job.backend().name
-                    
-                    # Extract circuit information from job inputs
-                    try:
-                        # Get the circuit from job inputs
-                        inputs = job.inputs()
-                        circuits = None
-                        
-                        # Try to extract circuits from different possible input formats
-                        if 'circuits' in inputs:
-                            circuits = inputs['circuits']
-                        elif 'circuit' in inputs:
-                            circuits = [inputs['circuit']]
-                        elif hasattr(job_result[0].data, 'test_result') and hasattr(job_result[0].data.test_result, 'circuit'):
-                            circuits = [job_result[0].data.test_result.circuit]
-                        
-                        if circuits and len(circuits) > 0:
-                            # Get the first circuit for analysis
-                            circuit = circuits[0]
-                            
-                            # Check if circuit is a QuantumCircuit object or a dictionary
-                            if hasattr(circuit, 'depth') and callable(circuit.depth):
-                                # It's a QuantumCircuit object
-                                circuit_depth = circuit.depth()
-                                circuit_width = circuit.width()
-                                circuit_size = circuit.size()
-                                circuit_count_ops = json.dumps([[op, count] for op, count in circuit.count_ops().items()])
-                                num_qubits = circuit.num_qubits
-                                num_clbits = circuit.num_clbits
-                                num_ancillas = getattr(circuit, 'num_ancillas', 0)
-                                num_parameters = len(circuit.parameters) if hasattr(circuit, 'parameters') else 0
-                                has_calibrations = bool(circuit.calibrations) if hasattr(circuit, 'calibrations') else False
-                                has_layout = bool(getattr(circuit, 'layout', None))
-                            elif isinstance(circuit, dict):
-                                # It's a dictionary representation of a circuit
-                                print(f"Circuit for job {row['ibm_job_id']} is a dictionary, extracting information from dictionary structure")
-                                
-                                # Try to extract information from the dictionary
-                                # These are common keys in serialized circuit dictionaries
-                                circuit_depth = circuit.get('depth', 0)
-                                circuit_width = circuit.get('width', 0)
-                                circuit_size = circuit.get('size', 0)
-                                
-                                # Extract operation counts if available
-                                if 'count_ops' in circuit:
-                                    circuit_count_ops = json.dumps(circuit['count_ops'])
-                                elif 'operations' in circuit:
-                                    # Count operations by type
-                                    ops_count = {}
-                                    for op in circuit.get('operations', []):
-                                        op_name = op.get('name', 'unknown')
-                                        ops_count[op_name] = ops_count.get(op_name, 0) + 1
-                                    circuit_count_ops = json.dumps([[op, count] for op, count in ops_count.items()])
-                                else:
-                                    circuit_count_ops = '[]'
-                                
-                                num_qubits = circuit.get('num_qubits', 0)
-                                num_clbits = circuit.get('num_clbits', 0)
-                                num_ancillas = circuit.get('num_ancillas', 0)
-                                num_parameters = len(circuit.get('parameters', []))
-                                has_calibrations = bool(circuit.get('calibrations', {}))
-                                has_layout = bool(circuit.get('layout', None))
-                            else:
-                                # Try to get information from job metadata or result
-                                print(f"Circuit for job {row['ibm_job_id']} is not a standard circuit object, trying alternative methods")
-                                
-                                # Try to get circuit information from job metadata
-                                metadata = job_result.metadata
-                                
-                                # Extract basic circuit information from metadata if available
-                                circuit_depth = metadata.get('depth', 0)
-                                circuit_width = metadata.get('width', 0)
-                                circuit_size = metadata.get('size', 0)
-                                circuit_count_ops = '[]'  # Default empty
-                                num_qubits = metadata.get('num_qubits', 0)
-                                num_clbits = metadata.get('num_clbits', 0)
-                                num_ancillas = 0
-                                num_parameters = 0
-                                has_calibrations = False
-                                has_layout = False
-                                
-                                # If we couldn't get information from metadata, try to infer from counts
-                                if circuit_depth == 0 and circuit_width == 0:
-                                    # Infer number of qubits from the bit string length in counts
-                                    num_qubits = bit_string_length
-                                    circuit_width = num_qubits
-                            
-                            # Update circuit information
-                            df.at[idx, 'circuit_depth'] = circuit_depth
-                            df.at[idx, 'circuit_width'] = circuit_width
-                            df.at[idx, 'circuit_size'] = circuit_size
-                            df.at[idx, 'circuit_count_ops'] = circuit_count_ops
-                            df.at[idx, 'num_qubits'] = num_qubits
-                            df.at[idx, 'num_clbits'] = num_clbits
-                            df.at[idx, 'num_ancillas'] = num_ancillas
-                            df.at[idx, 'num_parameters'] = num_parameters
-                            df.at[idx, 'has_calibrations'] = has_calibrations
-                            df.at[idx, 'has_layout'] = has_layout
-                            
-                            # Try to infer payload_size and num_gates from circuit information
-                            if pd.isna(row.get('payload_size')):
-                                # Payload size might be related to the number of qubits
-                                df.at[idx, 'payload_size'] = max(1, num_qubits - 2)  # Assuming teleportation protocol, minimum 1
-                            
-                            if pd.isna(row.get('num_gates')):
-                                # If we have circuit_count_ops as a string, parse it
-                                if isinstance(circuit_count_ops, str):
-                                    try:
-                                        count_ops = json.loads(circuit_count_ops)
-                                        # Handle different formats of count_ops
-                                        if isinstance(count_ops, list) and len(count_ops) > 0 and isinstance(count_ops[0], list):
-                                            # Format: [[op, count], [op, count], ...]
-                                            gate_ops = sum(count for op, count in count_ops 
-                                                        if op.lower() not in ['measure', 'barrier', 'reset'])
-                                        elif isinstance(count_ops, dict):
-                                            # Format: {op: count, op: count, ...}
-                                            gate_ops = sum(count for op, count in count_ops.items() 
-                                                        if op.lower() not in ['measure', 'barrier', 'reset'])
-                                        else:
-                                            gate_ops = circuit_size  # Fallback
-                                    except json.JSONDecodeError:
-                                        gate_ops = circuit_size  # Fallback
-                                else:
-                                    gate_ops = circuit_size  # Fallback
-                                
-                                df.at[idx, 'num_gates'] = gate_ops
-                        else:
-                            # If we couldn't find a circuit, try to infer from job metadata or counts
-                            print(f"No circuit found for job {row['ibm_job_id']}, inferring from job metadata")
-                            
-                            # Infer number of qubits from the bit string length in counts
-                            num_qubits = bit_string_length
-                            
-                            # Set basic circuit information
-                            df.at[idx, 'num_qubits'] = num_qubits
-                            df.at[idx, 'circuit_width'] = num_qubits
-                            
-                            # Try to get circuit information from job metadata
-                            metadata = job_result.metadata
-                            if hasattr(metadata, 'get'):
-                                df.at[idx, 'circuit_depth'] = metadata.get('depth', 0)
-                                df.at[idx, 'circuit_size'] = metadata.get('size', 0)
-                            
-                            # If payload_size is not set, infer it
-                            if pd.isna(row.get('payload_size')):
-                                df.at[idx, 'payload_size'] = max(1, num_qubits - 2)  # Minimum 1
-                    except Exception as circuit_error:
-                        print(f"Error extracting circuit information for job {row['ibm_job_id']}: {str(circuit_error)}")
-                        # Print more detailed error information for debugging
-                        import traceback
-                        traceback.print_exc()
-                        
-                        # Try to infer basic information from counts
-                        try:
-                            # Infer number of qubits from the bit string length in counts
-                            num_qubits = bit_string_length
-                            df.at[idx, 'num_qubits'] = num_qubits
-                            df.at[idx, 'circuit_width'] = num_qubits
-                            
-                            # If payload_size is not set, infer it
-                            if pd.isna(row.get('payload_size')):
-                                df.at[idx, 'payload_size'] = max(1, num_qubits - 2)  # Minimum 1
-                        except Exception:
-                            pass
-                    
-                    # Update the row with job information
-                    df.at[idx, 'ibm_backend'] = backend_name
-                    df.at[idx, 'counts'] = json.dumps(counts)
-                    df.at[idx, 'success_rate'] = success_rate
-                    df.at[idx, 'status'] = 'completed'
-                    
-                    # Set execution_type and experiment_type if not already set
-                    if pd.isna(row.get('execution_type')):
-                        df.at[idx, 'execution_type'] = 'ibm'
-                    
-                    if pd.isna(row.get('experiment_type')):
-                        df.at[idx, 'experiment_type'] = 'dynamic_payload_gates'
-                    
-                    # Job metrics
-                    df.at[idx, 'job_duration'] = metrics.get('usage', {}).get('seconds', 0.0)
-                    df.at[idx, 'job_quantum_duration'] = metrics.get('usage', {}).get('quantum_seconds', 0.0)
-                    df.at[idx, 'job_status'] = 'completed'
-                    df.at[idx, 'job_success_rate'] = success_rate
-                    df.at[idx, 'job_created'] = metrics.get('timestamps', {}).get('created')
-                    df.at[idx, 'job_finished'] = metrics.get('timestamps', {}).get('finished')
-                    df.at[idx, 'job_running'] = metrics.get('timestamps', {}).get('running')
-                    df.at[idx, 'job_execution_spans'] = str(execution_spans)
-                    df.at[idx, 'job_execution_duration'] = execution_duration
-                    
-                    print(f"Updated job {row['ibm_job_id']} information")
-                except Exception as e:
-                    print(f"Error processing job {row['ibm_job_id']}: {str(e)}")
-                    df.at[idx, 'status'] = 'error'
-                    df.at[idx, 'job_status'] = 'error'
-                    df.at[idx, 'job_duration'] = 0.0
-                    df.at[idx, 'job_quantum_duration'] = 0.0
-                    df.at[idx, 'job_success_rate'] = 0.0
-                    df.at[idx, 'job_execution_duration'] = 0.0
-        
-        # Save the DataFrame
         df.to_csv(output_csv, index=False)
         print(f"Results exported to {output_csv}")
         
