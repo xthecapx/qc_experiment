@@ -299,7 +299,6 @@ def plot_circuit_complexity(df):
     
     plt.tight_layout()
     plt.savefig('circuit_complexity_2d.png', dpi=300, bbox_inches='tight')
-    # plt.close()
     
     # Create multiple 3D plots with different viewing angles
     view_angles = [
@@ -346,7 +345,6 @@ def plot_circuit_complexity(df):
         # Save figure with view angle indicator
         plt.tight_layout()
         plt.savefig(f'circuit_complexity_3d_view{i}.png', dpi=300, bbox_inches='tight')
-        # plt.close()
     
     return None
 
@@ -514,20 +512,20 @@ def plot_error_analysis(df):
     
     plt.tight_layout()
     plt.savefig('error_analysis.png', dpi=300, bbox_inches='tight')
-    # plt.close()
     
     return None
 
-def calculate_cap_score(success_rate, payload_size, complexity_value, ps_max=4, complexity_max=None, complexity_type='gates'):
+def calculate_cap_score(success_rate, payload_size, complexity_value, ps_max=4, complexity_max=None, complexity_type='gates', 
+                   payload_weight=2.0, complexity_weight=1.0):
     """
     Calculate the Cap-score (Capability score) for a quantum hardware configuration.
     
     The Cap-score is a metric that combines success rate with circuit complexity,
     providing a single value that represents how well the hardware handles complex circuits.
     
-    Formula: Cap-score = success_rate * sqrt((payload_size * complexity_value)/(ps_max * complexity_max)) * 100
+    Formula: Cap-score = success_rate * ((payload_size/ps_max)^payload_weight * (complexity_value/complexity_max)^complexity_weight) * 100
     
-    This rewards both high success rates and the ability to handle complex circuits.
+    This rewards high success rates while accounting for the different impacts of payload size and circuit complexity.
     
     Parameters:
     -----------
@@ -543,6 +541,10 @@ def calculate_cap_score(success_rate, payload_size, complexity_value, ps_max=4, 
         Maximum complexity value (default: uses global MAX_GATE_COUNT or MAX_CIRCUIT_DEPTH)
     complexity_type : str
         Type of complexity measure ('gates' or 'depth')
+    payload_weight : float
+        Weight factor for payload size impact (default: 2.0)
+    complexity_weight : float
+        Weight factor for complexity impact (default: 1.0)
     
     Returns:
     --------
@@ -555,12 +557,28 @@ def calculate_cap_score(success_rate, payload_size, complexity_value, ps_max=4, 
             complexity_max = MAX_CIRCUIT_DEPTH
         else:
             raise ValueError("complexity_type must be 'gates' or 'depth'")
-        
-    return success_rate * np.sqrt((payload_size * complexity_value)/(ps_max * complexity_max)) * 100
+    
+    # Normalize the factors
+    normalized_payload = min(payload_size / ps_max, 1.0)
+    normalized_complexity = min(complexity_value / complexity_max, 1.0)
+    
+    # Apply weights to reflect different impacts
+    weighted_factor = (normalized_payload ** payload_weight) * (normalized_complexity ** complexity_weight)
+    
+    return success_rate * weighted_factor * 100
 
-def plot_cap_scores(df):
+def plot_cap_scores(df, payload_weight=2.0, complexity_weight=1.0):
     """
     Create visualization of Cap-scores with grouped bars for each payload size and gate range.
+    
+    Parameters:
+    -----------
+    df : pandas.DataFrame
+        DataFrame containing experiment results
+    payload_weight : float
+        Weight factor for payload size impact (default: 2.0)
+    complexity_weight : float
+        Weight factor for complexity impact (default: 1.0)
     """
     # Create figure
     fig, ax = plt.subplots(figsize=(15, 8))
@@ -593,7 +611,14 @@ def plot_cap_scores(df):
             mask = (df['payload_size'] == size) & (df['num_gates'].between(gate_range[0], gate_range[1]))
             if not df[mask].empty:
                 success_rate = df[mask]['success_rate'].mean()
-                cap_score = calculate_cap_score(success_rate, size, gate_range[0], complexity_type='gates')
+                cap_score = calculate_cap_score(
+                    success_rate, 
+                    size, 
+                    gate_range[0], 
+                    complexity_type='gates',
+                    payload_weight=payload_weight,
+                    complexity_weight=complexity_weight
+                )
                 cap_scores.append(cap_score)
             else:
                 cap_scores.append(0)
@@ -678,12 +703,22 @@ def plot_cap_scores(df):
     
     plt.tight_layout()
     plt.savefig('cap_scores_analysis.png', dpi=300, bbox_inches='tight')
-    # plt.close()
+    
+    return None
 
-def plot_depth_analysis(df):
+def plot_depth_analysis(df, payload_weight=2.9, complexity_weight=0.1):
     """
     Create comprehensive analysis plots based on circuit depth instead of gate count.
     This provides an alternative perspective on how circuit complexity affects performance.
+    
+    Parameters:
+    -----------
+    df : pandas.DataFrame
+        DataFrame containing experiment results
+    payload_weight : float
+        Weight factor for payload size impact (default: 2.0)
+    complexity_weight : float
+        Weight factor for complexity impact (default: 1.0)
     """
     # Create figure with GridSpec for flexible layout
     fig = plt.figure(figsize=(18, 12))
@@ -732,43 +767,37 @@ def plot_depth_analysis(df):
         if df[df['circuit_depth'].between(depth_range[0], depth_range[1], inclusive='both')].shape[0] > 0:
             depth_ranges.append(depth_range)
     
-    # Calculate number of ranges
-    num_ranges = len(depth_ranges)
-    
-    # Create a color map for depth ranges that cycles through the COLORBREWER_PALETTE
+    # Create a color map for depth ranges
     depth_colors = {}
     for i, depth_range in enumerate(depth_ranges):
-        # Cycle through the available colors in COLORBREWER_PALETTE
         color_idx = (i % len(COLORBREWER_PALETTE)) + 1
         depth_colors[depth_range] = COLORBREWER_PALETTE[color_idx]
     
+    # Calculate error rates for each payload size and depth range
     for i, depth_range in enumerate(depth_ranges):
-        errors = []
+        error_rates = []
+        
         for size in payload_sizes:
             mask = (df['payload_size'] == size) & (df['circuit_depth'].between(depth_range[0], depth_range[1], inclusive='both'))
-            error_rate = 1 - df[mask]['success_rate'].mean() if not df[mask].empty else 0
-            errors.append(error_rate)
+            if not df[mask].empty:
+                error_rate = 1 - df[mask]['success_rate'].mean()
+                error_rates.append(error_rate * 100)  # Convert to percentage
+            else:
+                error_rates.append(0)
         
-        # Use the assigned color from COLORBREWER_PALETTE with appropriate alpha
-        alpha_value = 0.5 + (0.5 * i / num_ranges) if num_ranges > 1 else 0.7
-        alpha_value = min(0.9, alpha_value)  # Cap at 0.9 to be safe
-        
-        ax2.bar(x, errors, bottom=bottom,
-                label=f'{depth_range[0]}-{depth_range[1]} depth',
-                color=depth_colors[depth_range],
-                alpha=alpha_value,
-                edgecolor='black', linewidth=0.5)
-        bottom += errors
+        ax2.bar(x, error_rates, bottom=bottom, label=f'{depth_range[0]}-{depth_range[1]}',
+               color=depth_colors[depth_range], alpha=0.7, edgecolor='black', linewidth=0.5)
+        bottom += error_rates
     
     ax2.set_xlabel('Payload Size', fontsize=12)
-    ax2.set_ylabel('Error Rate', fontsize=12)
-    ax2.set_title('Cumulative Error Rate by Payload Size and Circuit Depth', fontsize=14)
+    ax2.set_ylabel('Error Rate (%)', fontsize=12)
+    ax2.set_title('Error Distribution by Circuit Depth', fontsize=14)
     ax2.set_xticks(x)
     ax2.set_xticklabels(payload_sizes)
-    ax2.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
-    ax2.grid(True, linestyle='--', alpha=0.3)
+    ax2.legend(title='Depth Range', bbox_to_anchor=(1.05, 1), loc='upper left')
+    ax2.grid(True, linestyle='--', alpha=0.3, axis='y')
 
-    # 3. Heatmap of success rate by payload size and depth range
+    # 3. Heatmap of success rates
     heatmap_data = np.zeros((len(payload_sizes), len(depth_ranges)))
     
     for i, size in enumerate(payload_sizes):
@@ -806,55 +835,44 @@ def plot_depth_analysis(df):
     ax4 = fig.add_subplot(gs[3])
     ax4.axis('off')  # Hide axes
     
-    # Calculate depth-based Cap-scores
-    depth_cap_scores = []
-    for size in payload_sizes:
-        for depth_range in depth_ranges:
-            mask = (df['payload_size'] == size) & (df['circuit_depth'].between(depth_range[0], depth_range[1], inclusive='both'))
-            if not df[mask].empty:
-                success_rate = df[mask]['success_rate'].mean()
-                avg_depth = df[mask]['circuit_depth'].mean()
-                # Calculate a depth-based Cap-score using the unified function
-                depth_cap = calculate_cap_score(success_rate, size, avg_depth, complexity_type='depth')
-                depth_cap_scores.append({
-                    'payload_size': size,
-                    'depth_range': depth_range,
-                    'success_rate': success_rate,
-                    'avg_depth': avg_depth,
-                    'depth_cap_score': depth_cap
-                })
+    # Calculate summary statistics
+    overall_success = df['success_rate'].mean()
+    best_config_idx = np.unravel_index(np.argmax(heatmap_data), heatmap_data.shape)
+    best_payload = payload_sizes[best_config_idx[0]]
+    best_depth_range = depth_ranges[best_config_idx[1]]
+    best_success = heatmap_data[best_config_idx]
     
-    # Find best and worst configurations
-    if depth_cap_scores:
-        best_config = max(depth_cap_scores, key=lambda x: x['depth_cap_score'])
-        worst_config = min(depth_cap_scores, key=lambda x: x['depth_cap_score'])
-        avg_depth_cap = np.mean([score['depth_cap_score'] for score in depth_cap_scores])
-        
-        # Create text for the summary box
-        summary_text = (
-            "CIRCUIT DEPTH ANALYSIS SUMMARY\n"
-            "=============================\n\n"
-            f"Overall Success Rate: {df['success_rate'].mean():.2%}\n\n"
-            f"Best Depth Configuration:\n"
-            f"  - Payload Size: {best_config['payload_size']}\n"
-            f"  - Depth Range: {best_config['depth_range'][0]}-{best_config['depth_range'][1]}\n"
-            f"  - Success Rate: {best_config['success_rate']:.2%}\n"
-            f"  - Depth-Cap Score: {best_config['depth_cap_score']:.2f}\n\n"
-            f"Worst Depth Configuration:\n"
-            f"  - Payload Size: {worst_config['payload_size']}\n"
-            f"  - Depth Range: {worst_config['depth_range'][0]}-{worst_config['depth_range'][1]}\n"
-            f"  - Success Rate: {worst_config['success_rate']:.2%}\n"
-            f"  - Depth-Cap Score: {worst_config['depth_cap_score']:.2f}\n\n"
-            f"Average Depth-Cap Score: {avg_depth_cap:.2f}\n\n"
-            f"Success Rate by Payload Size:\n"
-        )
-        
-        # Add success rates by payload size
-        for size in payload_sizes:
-            rate = df[df['payload_size'] == size]['success_rate'].mean()
-            summary_text += f"  - Payload {size}: {rate:.2%}\n"
-    else:
-        summary_text = "No data available for depth-based analysis."
+    worst_config_idx = np.unravel_index(np.argmin(heatmap_data), heatmap_data.shape)
+    worst_payload = payload_sizes[worst_config_idx[0]]
+    worst_depth_range = depth_ranges[worst_config_idx[1]]
+    worst_success = heatmap_data[worst_config_idx]
+    
+    # Create text for the summary box
+    summary_text = (
+        "CIRCUIT DEPTH ANALYSIS SUMMARY\n"
+        "=============================\n\n"
+        f"Overall Success Rate: {overall_success:.2%}\n\n"
+        f"Best Depth Configuration:\n"
+        f"  - Payload Size: {best_payload}\n"
+        f"  - Depth Range: {best_depth_range[0]}-{best_depth_range[1]}\n"
+        f"  - Success Rate: {best_success:.2%}\n"
+        f"  - Depth-Cap Score: {best_success:.2f}\n\n"
+        f"Worst Depth Configuration:\n"
+        f"  - Payload Size: {worst_payload}\n"
+        f"  - Depth Range: {worst_depth_range[0]}-{worst_depth_range[1]}\n"
+        f"  - Success Rate: {worst_success:.2%}\n"
+        f"  - Depth-Cap Score: {worst_success:.2f}\n\n"
+        f"Average Depth-Cap Score: {best_success:.2f}\n\n"
+        f"Weights Used:\n"
+        f"  - Payload Weight: {payload_weight:.2f}\n"
+        f"  - Complexity Weight: {complexity_weight:.2f}\n\n"
+        f"Success Rate by Payload Size:\n"
+    )
+    
+    # Add success rates by payload size
+    for size in payload_sizes:
+        rate = df[df['payload_size'] == size]['success_rate'].mean()
+        summary_text += f"  - Payload {size}: {rate:.2%}\n"
     
     # Create a text box
     props = dict(boxstyle='round', facecolor='wheat', alpha=0.5)
@@ -863,7 +881,6 @@ def plot_depth_analysis(df):
     
     plt.tight_layout()
     plt.savefig('circuit_depth_analysis.png', dpi=300, bbox_inches='tight')
-    # plt.close()
     
     # Create a separate figure for depth-based Cap-scores
     if depth_cap_scores:
@@ -907,7 +924,7 @@ def plot_depth_analysis(df):
         # Set the x-axis labels and ticks
         plt.xlabel('Payload Size', fontsize=14)
         plt.ylabel('Depth-Cap Score (0-100)', fontsize=14)
-        plt.title('Depth-Based Cap-Score Analysis by Payload Size and Circuit Depth', fontsize=16)
+        plt.title(f'Depth-Based Cap-Score Analysis (PW={payload_weight:.1f}, CW={complexity_weight:.1f})', fontsize=16)
         plt.xticks(index, payload_sizes)
         plt.grid(True, linestyle='--', alpha=0.3, axis='y')
         
@@ -928,9 +945,908 @@ def plot_depth_analysis(df):
         
         plt.tight_layout()
         plt.savefig('depth_cap_scores_analysis.png', dpi=300, bbox_inches='tight')
-        # plt.close()
     
     return None
+
+def analyze_error_impact_weights(df):
+    """
+    Analyze the experimental data to determine the relative impact of payload size,
+    gate count, and circuit depth on error rates.
+    
+    This function helps determine appropriate weights for the Cap-score calculation
+    by analyzing how much each factor contributes to decreased success rates.
+    
+    Parameters:
+    -----------
+    df : pandas.DataFrame
+        DataFrame containing experiment results
+        
+    Returns:
+    --------
+    tuple : (payload_weight, complexity_weight)
+        Suggested weights for payload size and complexity
+    """
+    # Get unique payload sizes, gate counts, and depth values
+    payload_sizes = sorted(df['payload_size'].unique())
+    
+    # Calculate baseline success rate (smallest payload, fewest gates)
+    min_payload = min(payload_sizes)
+    min_gates_range = min(df['num_gates'])
+    min_depth = min(df['circuit_depth'])
+    
+    # Baseline for gate analysis
+    baseline_mask_gates = (df['payload_size'] == min_payload) & (df['num_gates'] == min_gates_range)
+    if df[baseline_mask_gates].empty:
+        baseline_success_gates = 1.0  # Default if no baseline data
+    else:
+        baseline_success_gates = df[baseline_mask_gates]['success_rate'].mean()
+    
+    # Baseline for depth analysis
+    baseline_mask_depth = (df['payload_size'] == min_payload) & (df['circuit_depth'] == min_depth)
+    if df[baseline_mask_depth].empty:
+        baseline_success_depth = 1.0  # Default if no baseline data
+    else:
+        baseline_success_depth = df[baseline_mask_depth]['success_rate'].mean()
+    
+    # Calculate impact of increasing payload size (keeping gates constant)
+    payload_impacts_gates = []
+    for size in payload_sizes:
+        if size == min_payload:
+            continue
+        mask = (df['payload_size'] == size) & (df['num_gates'] == min_gates_range)
+        if not df[mask].empty:
+            success_rate = df[mask]['success_rate'].mean()
+            impact = (baseline_success_gates - success_rate) / baseline_success_gates
+            payload_impacts_gates.append((size, impact))
+    
+    # Calculate impact of increasing gates (keeping payload constant)
+    gate_impacts = []
+    gate_ranges = sorted(df['num_gates'].unique())
+    for gates in gate_ranges:
+        if gates == min_gates_range:
+            continue
+        mask = (df['payload_size'] == min_payload) & (df['num_gates'] == gates)
+        if not df[mask].empty:
+            success_rate = df[mask]['success_rate'].mean()
+            impact = (baseline_success_gates - success_rate) / baseline_success_gates
+            gate_impacts.append((gates, impact))
+    
+    # Calculate impact of increasing payload size (keeping depth constant)
+    payload_impacts_depth = []
+    for size in payload_sizes:
+        if size == min_payload:
+            continue
+        mask = (df['payload_size'] == size) & (df['circuit_depth'] == min_depth)
+        if not df[mask].empty:
+            success_rate = df[mask]['success_rate'].mean()
+            impact = (baseline_success_depth - success_rate) / baseline_success_depth
+            payload_impacts_depth.append((size, impact))
+    
+    # Calculate impact of increasing depth (keeping payload constant)
+    depth_impacts = []
+    depth_values = sorted(df['circuit_depth'].unique())
+    for depth in depth_values:
+        if depth == min_depth:
+            continue
+        mask = (df['payload_size'] == min_payload) & (df['circuit_depth'] == depth)
+        if not df[mask].empty:
+            success_rate = df[mask]['success_rate'].mean()
+            impact = (baseline_success_depth - success_rate) / baseline_success_depth
+            depth_impacts.append((depth, impact))
+    
+    # Calculate average impact per unit increase for gates analysis
+    if payload_impacts_gates:
+        avg_payload_impact_gates = np.mean([impact for _, impact in payload_impacts_gates]) / (len(payload_impacts_gates))
+    else:
+        avg_payload_impact_gates = 0.5  # Default if no data
+        
+    if gate_impacts:
+        avg_gate_impact = np.mean([impact for _, impact in gate_impacts]) / (len(gate_impacts))
+    else:
+        avg_gate_impact = 0.25  # Default if no data
+    
+    # Calculate average impact per unit increase for depth analysis
+    if payload_impacts_depth:
+        avg_payload_impact_depth = np.mean([impact for _, impact in payload_impacts_depth]) / (len(payload_impacts_depth))
+    else:
+        avg_payload_impact_depth = 0.5  # Default if no data
+        
+    if depth_impacts:
+        avg_depth_impact = np.mean([impact for _, impact in depth_impacts]) / (len(depth_impacts))
+    else:
+        avg_depth_impact = 0.25  # Default if no data
+    
+    # Use the average of both payload impacts
+    avg_payload_impact = (avg_payload_impact_gates + avg_payload_impact_depth) / 2
+    
+    # Calculate weights for gate-based analysis
+    total_impact_gates = avg_payload_impact + avg_gate_impact
+    if total_impact_gates > 0:
+        payload_weight_gates = 3.0 * (avg_payload_impact / total_impact_gates)
+        gate_weight = 3.0 * (avg_gate_impact / total_impact_gates)
+    else:
+        payload_weight_gates = 2.0  # Default
+        gate_weight = 1.0  # Default
+    
+    # Calculate weights for depth-based analysis
+    total_impact_depth = avg_payload_impact + avg_depth_impact
+    if total_impact_depth > 0:
+        payload_weight_depth = 3.0 * (avg_payload_impact / total_impact_depth)
+        depth_weight = 3.0 * (avg_depth_impact / total_impact_depth)
+    else:
+        payload_weight_depth = 2.0  # Default
+        depth_weight = 1.0  # Default
+    
+    # Now test different weight combinations to find the optimal weights
+    # that maximize the correlation between Cap-score and success rate
+    print("\nTesting different weight combinations to find optimal weights...")
+    
+    # Generate test weight combinations
+    weight_combinations = []
+    for pw in np.linspace(1.0, 3.0, 5):  # Test payload weights from 1.0 to 3.0
+        for cw in np.linspace(0.5, 2.0, 4):  # Test complexity weights from 0.5 to 2.0
+            weight_combinations.append((round(pw, 1), round(cw, 1)))
+    
+    # Test gate-based weights
+    best_correlation_gates = -1
+    best_weights_gates = (payload_weight_gates, gate_weight)
+    
+    for pw, cw in weight_combinations:
+        cap_scores = []
+        success_rates = []
+        
+        for _, row in df.iterrows():
+            cap_score = calculate_cap_score(
+                row['success_rate'], 
+                row['payload_size'], 
+                row['num_gates'], 
+                complexity_type='gates',
+                payload_weight=pw,
+                complexity_weight=cw
+            )
+            cap_scores.append(cap_score)
+            success_rates.append(row['success_rate'] * 100)  # Convert to percentage
+        
+        correlation = np.corrcoef(cap_scores, success_rates)[0, 1]
+        if correlation > best_correlation_gates:
+            best_correlation_gates = correlation
+            best_weights_gates = (pw, cw)
+    
+    # Test depth-based weights
+    best_correlation_depth = -1
+    best_weights_depth = (payload_weight_depth, depth_weight)
+    
+    for pw, cw in weight_combinations:
+        cap_scores = []
+        success_rates = []
+        
+        for _, row in df.iterrows():
+            cap_score = calculate_cap_score(
+                row['success_rate'], 
+                row['payload_size'], 
+                row['circuit_depth'], 
+                complexity_type='depth',
+                payload_weight=pw,
+                complexity_weight=cw
+            )
+            cap_scores.append(cap_score)
+            success_rates.append(row['success_rate'] * 100)  # Convert to percentage
+        
+        correlation = np.corrcoef(cap_scores, success_rates)[0, 1]
+        if correlation > best_correlation_depth:
+            best_correlation_depth = correlation
+            best_weights_depth = (pw, cw)
+    
+    # Print analysis results
+    print(f"\nAnalysis of error impacts:")
+    print(f"  - Payload size impact (gates analysis): {avg_payload_impact_gates:.4f} per unit")
+    print(f"  - Gate count impact: {avg_gate_impact:.4f} per unit")
+    print(f"  - Payload size impact (depth analysis): {avg_payload_impact_depth:.4f} per unit")
+    print(f"  - Circuit depth impact: {avg_depth_impact:.4f} per unit")
+    
+    print(f"\nInitial suggested weights (based on impact analysis):")
+    print(f"  - Gates analysis: Payload weight = {payload_weight_gates:.2f}, Complexity weight = {gate_weight:.2f}")
+    print(f"  - Depth analysis: Payload weight = {payload_weight_depth:.2f}, Complexity weight = {depth_weight:.2f}")
+    
+    print(f"\nOptimal weights (based on correlation with success rate):")
+    print(f"  - Gates analysis: Payload weight = {best_weights_gates[0]:.1f}, Complexity weight = {best_weights_gates[1]:.1f}")
+    print(f"  - Correlation with success rate: {best_correlation_gates:.4f}")
+    print(f"  - Depth analysis: Payload weight = {best_weights_depth[0]:.1f}, Complexity weight = {best_weights_depth[1]:.1f}")
+    print(f"  - Correlation with success rate: {best_correlation_depth:.4f}")
+    
+    # Return the optimal weights for gates analysis (primary use case)
+    return best_weights_gates[0], best_weights_gates[1], best_weights_depth[0], best_weights_depth[1]
+
+def plot_circuit_size_binned_analysis(df):
+    """
+    Create comprehensive analysis plots based on circuit size (total number of operations)
+    using custom bins for different size ranges.
+    
+    This function uses predefined bins based on observed patterns in the data:
+    - 200 gates: 411-437
+    - 500 gates: 1011-1036
+    - 1k gates: 2011-2036
+    - 1.5k gates: 3011-3036
+    - 2k gates: 4011-4036
+    - 3k gates: 6011-6036
+    - 10k gates: 20005-20036
+    
+    Parameters:
+    -----------
+    df : pandas.DataFrame
+        DataFrame containing experiment results
+    """
+    # Create figure with GridSpec for flexible layout
+    fig = plt.figure(figsize=(18, 12))
+    gs = plt.GridSpec(2, 2, width_ratios=[1.5, 1], height_ratios=[1, 1])
+    
+    ax1 = fig.add_subplot(gs[0])
+    ax2 = fig.add_subplot(gs[1])
+    ax3 = fig.add_subplot(gs[2])
+    ax4 = fig.add_subplot(gs[3])
+    ax4.axis('off')  # Hide axes for the text box
+
+    # Get payload sizes and prepare data
+    payload_sizes = sorted(df['payload_size'].unique())
+    
+    # Define custom circuit size bins based on the specified patterns
+    circuit_size_bins = [
+        (411, 437, "200 gates"),
+        (1011, 1036, "500 gates"),
+        (2011, 2036, "1k gates"),
+        (3011, 3036, "1.5k gates"),
+        (4011, 4036, "2k gates"),
+        (6011, 6036, "3k gates"),
+        (20005, 20036, "10k gates")
+    ]
+    
+    # Create a new column for circuit size category
+    df['circuit_size_category'] = None
+    for start, end, label in circuit_size_bins:
+        mask = df['circuit_size'].between(start, end, inclusive='both')
+        df.loc[mask, 'circuit_size_category'] = label
+    
+    # Filter out rows that don't match any of our bins
+    df_filtered = df.dropna(subset=['circuit_size_category'])
+    
+    # If no data matches our bins, print a warning and return
+    if len(df_filtered) == 0:
+        print("Warning: No data matches the specified circuit size bins.")
+        return None
+    
+    # 1. Scatter plot of success rate vs circuit size category
+    # We'll use the midpoint of each bin for the x-axis
+    bin_midpoints = {label: (start + end) / 2 for start, end, label in circuit_size_bins}
+    bin_order = [label for _, _, label in circuit_size_bins]
+    
+    for i, size in enumerate(payload_sizes):
+        payload_data = df_filtered[df_filtered['payload_size'] == size]
+        if len(payload_data) == 0:
+            continue
+            
+        # Group by circuit size category and calculate mean success rate
+        grouped = payload_data.groupby('circuit_size_category')['success_rate'].mean() * 100
+        
+        # Get x-values (bin midpoints) and y-values (success rates)
+        x_values = []
+        y_values = []
+        for category in bin_order:
+            if category in grouped.index:
+                x_values.append(bin_midpoints[category])
+                y_values.append(grouped[category])
+        
+        # Plot scatter points
+        if x_values:
+            ax1.scatter(x_values, y_values,
+                       color=COLORBREWER_PALETTE[size], 
+                       marker=MARKER_STYLES[size],
+                       s=100,
+                       label=f'Payload Size {size}')
+            
+            # Add trend line if we have enough points
+            if len(x_values) >= 3:
+                try:
+                    # Use numpy's polyfit with warnings suppressed
+                    with np.errstate(invalid='ignore'):
+                        z = np.polyfit(x_values, y_values, 1)
+                        p = np.poly1d(z)
+                        x_trend = np.linspace(min(x_values), max(x_values), 100)
+                        y_trend = p(x_trend)
+                        ax1.plot(x_trend, y_trend, 
+                                color=COLORBREWER_PALETTE[size],
+                                linestyle='--', alpha=0.7,
+                                label=f'Trend P{size} (slope: {z[0]:.2e})')
+                except np.linalg.LinAlgError:
+                    print(f"Warning: Could not fit trend line for payload size {size}")
+    
+    # Set x-axis to use the bin labels instead of midpoints
+    ax1.set_xticks([bin_midpoints[label] for label in bin_order])
+    ax1.set_xticklabels(bin_order, rotation=45)
+    
+    ax1.set_xlabel('Circuit Size', fontsize=12)
+    ax1.set_ylabel('Success Rate (%)', fontsize=12)
+    ax1.set_title('Success Rate vs Circuit Size', fontsize=14)
+    ax1.grid(True, linestyle='--', alpha=0.7)
+    ax1.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+
+    # 2. Stacked bar chart showing error distribution by circuit size
+    # Calculate error rates for each payload size and circuit size bin
+    bottom = np.zeros(len(payload_sizes))
+    
+    for bin_idx, (_, _, label) in enumerate(circuit_size_bins):
+        error_rates = []
+        
+        for size in payload_sizes:
+            mask = (df_filtered['payload_size'] == size) & (df_filtered['circuit_size_category'] == label)
+            if not df_filtered[mask].empty:
+                error_rate = 1 - df_filtered[mask]['success_rate'].mean()
+                error_rates.append(error_rate * 100)  # Convert to percentage
+            else:
+                error_rates.append(0)
+        
+        # Use a consistent color scheme based on bin index
+        color_idx = (bin_idx % len(COLORBREWER_PALETTE)) + 1
+        
+        ax2.bar(np.arange(len(payload_sizes)), error_rates, bottom=bottom, 
+               label=label,
+               color=COLORBREWER_PALETTE[color_idx], alpha=0.7, 
+               edgecolor='black', linewidth=0.5)
+        bottom += error_rates
+    
+    ax2.set_xlabel('Payload Size', fontsize=12)
+    ax2.set_ylabel('Error Rate (%)', fontsize=12)
+    ax2.set_title('Error Distribution by Circuit Size', fontsize=14)
+    ax2.set_xticks(np.arange(len(payload_sizes)))
+    ax2.set_xticklabels(payload_sizes)
+    ax2.legend(title='Circuit Size', bbox_to_anchor=(1.05, 1), loc='upper left')
+    ax2.grid(True, linestyle='--', alpha=0.3, axis='y')
+
+    # 3. Heatmap of success rates by payload size and circuit size
+    # Create a 2D array for the heatmap
+    heatmap_data = np.zeros((len(payload_sizes), len(circuit_size_bins)))
+    
+    for i, payload_size in enumerate(payload_sizes):
+        for j, (_, _, label) in enumerate(circuit_size_bins):
+            mask = (df_filtered['payload_size'] == payload_size) & (df_filtered['circuit_size_category'] == label)
+            if not df_filtered[mask].empty:
+                heatmap_data[i, j] = df_filtered[mask]['success_rate'].mean()
+    
+    im = ax3.imshow(heatmap_data, cmap='viridis', aspect='auto')
+    
+    # Add colorbar
+    cbar = plt.colorbar(im, ax=ax3)
+    cbar.set_label('Success Rate', rotation=270, labelpad=20)
+    
+    # Set ticks and labels
+    ax3.set_xticks(np.arange(len(circuit_size_bins)))
+    ax3.set_yticks(np.arange(len(payload_sizes)))
+    ax3.set_xticklabels([label for _, _, label in circuit_size_bins])
+    ax3.set_yticklabels(payload_sizes)
+    
+    # Rotate the tick labels and set alignment
+    plt.setp(ax3.get_xticklabels(), rotation=45, ha="right", rotation_mode="anchor")
+    
+    # Add text annotations in the heatmap cells
+    for i in range(len(payload_sizes)):
+        for j in range(len(circuit_size_bins)):
+            text = ax3.text(j, i, f'{heatmap_data[i, j]:.2f}',
+                           ha="center", va="center", color="w" if heatmap_data[i, j] < 0.5 else "black")
+    
+    ax3.set_title('Success Rate Heatmap by Circuit Size', fontsize=14)
+    ax3.set_xlabel('Circuit Size', fontsize=12)
+    ax3.set_ylabel('Payload Size', fontsize=12)
+
+    # 4. Add a text box with summary statistics
+    # Calculate summary statistics
+    overall_success = df_filtered['success_rate'].mean()
+    
+    # Find best and worst configurations from heatmap
+    best_config_idx = np.unravel_index(np.argmax(heatmap_data), heatmap_data.shape)
+    best_payload = payload_sizes[best_config_idx[0]]
+    best_size_bin = circuit_size_bins[best_config_idx[1]][2]  # Get the label
+    best_success = heatmap_data[best_config_idx]
+    
+    worst_config_idx = np.unravel_index(np.argmin(heatmap_data), heatmap_data.shape)
+    worst_payload = payload_sizes[worst_config_idx[0]]
+    worst_size_bin = circuit_size_bins[worst_config_idx[1]][2]  # Get the label
+    worst_success = heatmap_data[worst_config_idx]
+    
+    # Create text for the summary box
+    summary_text = (
+        "CIRCUIT SIZE ANALYSIS SUMMARY\n"
+        "============================\n\n"
+        f"Overall Success Rate: {overall_success:.2%}\n\n"
+        f"Best Configuration:\n"
+        f"  - Payload Size: {best_payload}\n"
+        f"  - Circuit Size: {best_size_bin}\n"
+        f"  - Success Rate: {best_success:.2%}\n\n"
+        f"Worst Configuration:\n"
+        f"  - Payload Size: {worst_payload}\n"
+        f"  - Circuit Size: {worst_size_bin}\n"
+        f"  - Success Rate: {worst_success:.2%}\n\n"
+        f"Success Rate by Payload Size:\n"
+    )
+    
+    # Add success rates by payload size
+    for size in payload_sizes:
+        rate = df_filtered[df_filtered['payload_size'] == size]['success_rate'].mean()
+        summary_text += f"  - Payload {size}: {rate:.2%}\n"
+    
+    # Add success rates by circuit size bin
+    summary_text += f"\nSuccess Rate by Circuit Size:\n"
+    for _, _, label in circuit_size_bins:
+        mask = df_filtered['circuit_size_category'] == label
+        if not df_filtered[mask].empty:
+            rate = df_filtered[mask]['success_rate'].mean()
+            summary_text += f"  - {label}: {rate:.2%}\n"
+    
+    # Create a text box
+    props = dict(boxstyle='round', facecolor='wheat', alpha=0.5)
+    ax4.text(0.05, 0.95, summary_text, transform=ax4.transAxes, fontsize=10,
+            verticalalignment='top', bbox=props, family='monospace')
+    
+    plt.tight_layout()
+    plt.savefig('circuit_size_binned_analysis.png', dpi=300, bbox_inches='tight')
+    
+    return None
+
+def plot_circuit_width_analysis(df):
+    """
+    Create comprehensive analysis plots based on circuit width (total number of qubits).
+    This provides insights into how the total circuit size affects performance.
+    
+    Parameters:
+    -----------
+    df : pandas.DataFrame
+        DataFrame containing experiment results
+    """
+    # Create figure with GridSpec for flexible layout
+    fig = plt.figure(figsize=(18, 12))
+    gs = plt.GridSpec(2, 2, width_ratios=[1.5, 1], height_ratios=[1, 1])
+    
+    ax1 = fig.add_subplot(gs[0])
+    ax2 = fig.add_subplot(gs[1])
+    ax3 = fig.add_subplot(gs[2])
+    ax4 = fig.add_subplot(gs[3])
+    ax4.axis('off')  # Hide axes for the text box
+
+    # Get payload sizes and prepare data
+    payload_sizes = sorted(df['payload_size'].unique())
+    
+    # Use circuit_width from the data (total number of qubits)
+    circuit_widths = sorted(df['circuit_width'].unique())
+    
+    # 1. Scatter plot of success rate vs circuit width
+    for i, size in enumerate(payload_sizes):
+        payload_data = df[df['payload_size'] == size]
+        ax1.scatter(payload_data['circuit_width'], payload_data['success_rate'] * 100,
+                   color=COLORBREWER_PALETTE[size], 
+                   marker=MARKER_STYLES[size],
+                   s=100,
+                   label=f'Payload Size {size}')
+        
+        # Add trend line if we have enough data points (at least 3 unique x values)
+        unique_x_values = payload_data['circuit_width'].unique()
+        if len(unique_x_values) >= 3:
+            try:
+                # Use numpy's polyfit with warnings suppressed
+                with np.errstate(invalid='ignore'):
+                    z = np.polyfit(payload_data['circuit_width'], payload_data['success_rate'] * 100, 1)
+                    p = np.poly1d(z)
+                    x_trend = np.linspace(payload_data['circuit_width'].min(), payload_data['circuit_width'].max(), 100)
+                    y_trend = p(x_trend)
+                    ax1.plot(x_trend, y_trend, 
+                            color=COLORBREWER_PALETTE[size],
+                            linestyle='--', alpha=0.7,
+                            label=f'Trend P{size} (slope: {z[0]:.2e})')
+            except np.linalg.LinAlgError:
+                # If polyfit fails, just skip the trend line for this payload size
+                print(f"Warning: Could not fit trend line for payload size {size}")
+    
+    ax1.set_xlabel('Circuit Width (Total Qubits)', fontsize=12)
+    ax1.set_ylabel('Success Rate (%)', fontsize=12)
+    ax1.set_title('Success Rate vs Circuit Width', fontsize=14)
+    ax1.grid(True, linestyle='--', alpha=0.7)
+    ax1.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+
+    # 2. Stacked bar chart showing error distribution by circuit width
+    # Define circuit width ranges for grouping
+    width_ranges = []
+    min_width = min(circuit_widths)
+    max_width = max(circuit_widths)
+    step = max(1, (max_width - min_width) // 5)  # Create about 5 ranges
+    
+    for i in range(min_width, max_width + 1, step):
+        width_ranges.append((i, min(i + step - 1, max_width)))
+    
+    # Create a color map for width ranges
+    width_colors = {}
+    for i, width_range in enumerate(width_ranges):
+        color_idx = (i % len(COLORBREWER_PALETTE)) + 1
+        width_colors[width_range] = COLORBREWER_PALETTE[color_idx]
+    
+    # Calculate error rates for each payload size and circuit width range
+    bottom = np.zeros(len(payload_sizes))
+    for i, width_range in enumerate(width_ranges):
+        error_rates = []
+        
+        for size in payload_sizes:
+            mask = (df['payload_size'] == size) & (df['circuit_width'].between(width_range[0], width_range[1], inclusive='both'))
+            if not df[mask].empty:
+                error_rate = 1 - df[mask]['success_rate'].mean()
+                error_rates.append(error_rate * 100)  # Convert to percentage
+            else:
+                error_rates.append(0)
+        
+        ax2.bar(np.arange(len(payload_sizes)), error_rates, bottom=bottom, 
+               label=f'{width_range[0]}-{width_range[1]}',
+               color=width_colors[width_range], alpha=0.7, 
+               edgecolor='black', linewidth=0.5)
+        bottom += error_rates
+    
+    ax2.set_xlabel('Payload Size', fontsize=12)
+    ax2.set_ylabel('Error Rate (%)', fontsize=12)
+    ax2.set_title('Error Distribution by Circuit Width', fontsize=14)
+    ax2.set_xticks(np.arange(len(payload_sizes)))
+    ax2.set_xticklabels(payload_sizes)
+    ax2.legend(title='Circuit Width Range', bbox_to_anchor=(1.05, 1), loc='upper left')
+    ax2.grid(True, linestyle='--', alpha=0.3, axis='y')
+
+    # 3. Heatmap of success rates by payload size and circuit width
+    heatmap_data = np.zeros((len(payload_sizes), len(width_ranges)))
+    
+    for i, payload_size in enumerate(payload_sizes):
+        for j, width_range in enumerate(width_ranges):
+            mask = (df['payload_size'] == payload_size) & (df['circuit_width'].between(width_range[0], width_range[1], inclusive='both'))
+            if not df[mask].empty:
+                heatmap_data[i, j] = df[mask]['success_rate'].mean()
+    
+    im = ax3.imshow(heatmap_data, cmap='viridis', aspect='auto')
+    
+    # Add colorbar
+    cbar = plt.colorbar(im, ax=ax3)
+    cbar.set_label('Success Rate', rotation=270, labelpad=20)
+    
+    # Set ticks and labels
+    ax3.set_xticks(np.arange(len(width_ranges)))
+    ax3.set_yticks(np.arange(len(payload_sizes)))
+    ax3.set_xticklabels([f'{r[0]}-{r[1]}' for r in width_ranges])
+    ax3.set_yticklabels(payload_sizes)
+    
+    # Rotate the tick labels and set alignment
+    plt.setp(ax3.get_xticklabels(), rotation=45, ha="right", rotation_mode="anchor")
+    
+    # Add text annotations in the heatmap cells
+    for i in range(len(payload_sizes)):
+        for j in range(len(width_ranges)):
+            text = ax3.text(j, i, f'{heatmap_data[i, j]:.2f}',
+                           ha="center", va="center", color="w" if heatmap_data[i, j] < 0.5 else "black")
+    
+    ax3.set_title('Success Rate Heatmap by Circuit Width', fontsize=14)
+    ax3.set_xlabel('Circuit Width Range (Total Qubits)', fontsize=12)
+    ax3.set_ylabel('Payload Size', fontsize=12)
+
+    # 4. Add a text box with summary statistics
+    # Calculate summary statistics
+    overall_success = df['success_rate'].mean()
+    
+    # Find best and worst configurations from heatmap
+    best_config_idx = np.unravel_index(np.argmax(heatmap_data), heatmap_data.shape)
+    best_payload = payload_sizes[best_config_idx[0]]
+    best_width_range = width_ranges[best_config_idx[1]]
+    best_success = heatmap_data[best_config_idx]
+    
+    worst_config_idx = np.unravel_index(np.argmin(heatmap_data), heatmap_data.shape)
+    worst_payload = payload_sizes[worst_config_idx[0]]
+    worst_width_range = width_ranges[worst_config_idx[1]]
+    worst_success = heatmap_data[worst_config_idx]
+    
+    # Create text for the summary box
+    summary_text = (
+        "CIRCUIT WIDTH ANALYSIS SUMMARY\n"
+        "============================\n\n"
+        f"Overall Success Rate: {overall_success:.2%}\n\n"
+        f"Best Configuration:\n"
+        f"  - Payload Size: {best_payload}\n"
+        f"  - Circuit Width Range: {best_width_range[0]}-{best_width_range[1]}\n"
+        f"  - Success Rate: {best_success:.2%}\n\n"
+        f"Worst Configuration:\n"
+        f"  - Payload Size: {worst_payload}\n"
+        f"  - Circuit Width Range: {worst_width_range[0]}-{worst_width_range[1]}\n"
+        f"  - Success Rate: {worst_success:.2%}\n\n"
+        f"Success Rate by Payload Size:\n"
+    )
+    
+    # Add success rates by payload size
+    for size in payload_sizes:
+        rate = df[df['payload_size'] == size]['success_rate'].mean()
+        summary_text += f"  - Payload {size}: {rate:.2%}\n"
+    
+    # Add success rates by circuit width range
+    summary_text += f"\nSuccess Rate by Circuit Width Range:\n"
+    for width_range in width_ranges:
+        mask = df['circuit_width'].between(width_range[0], width_range[1], inclusive='both')
+        if not df[mask].empty:
+            rate = df[mask]['success_rate'].mean()
+            summary_text += f"  - {width_range[0]}-{width_range[1]} qubits: {rate:.2%}\n"
+    
+    # Create a text box
+    props = dict(boxstyle='round', facecolor='wheat', alpha=0.5)
+    ax4.text(0.05, 0.95, summary_text, transform=ax4.transAxes, fontsize=10,
+            verticalalignment='top', bbox=props, family='monospace')
+    
+    plt.tight_layout()
+    plt.savefig('circuit_width_analysis.png', dpi=300, bbox_inches='tight')
+    
+    return None
+
+def analyze_job_execution_times(df):
+    """
+    Analyze job execution times by calculating the time differences between
+    job_created, job_running, and job_finished timestamps, and visualize
+    these times using histograms with logarithmic scales.
+    
+    Parameters:
+    -----------
+    df : pandas.DataFrame
+        DataFrame containing experiment results with job timestamp columns
+    """
+    # Convert timestamp strings to datetime objects
+    for col in ['job_created', 'job_running', 'job_finished']:
+        if col in df.columns:
+            df[col] = pd.to_datetime(df[col])
+    
+    # Calculate time differences in seconds
+    df['queue_time'] = (df['job_running'] - df['job_created']).dt.total_seconds()
+    df['total_time'] = (df['job_finished'] - df['job_created']).dt.total_seconds()
+    df['execution_time'] = (df['job_finished'] - df['job_running']).dt.total_seconds()
+    
+    # Function to calculate mode (most common value)
+    def calculate_mode(data):
+        # Round to 2 decimal places to group similar values
+        rounded_data = np.round(data, 2)
+        values, counts = np.unique(rounded_data, return_counts=True)
+        mode_index = np.argmax(counts)
+        return values[mode_index], counts[mode_index]
+    
+    # Calculate modes
+    queue_mode, queue_mode_count = calculate_mode(df['queue_time'])
+    total_mode, total_mode_count = calculate_mode(df['total_time'])
+    exec_mode, exec_mode_count = calculate_mode(df['execution_time'])
+    
+    # Create figure with subplots
+    fig, axes = plt.subplots(3, 1, figsize=(12, 15))
+    
+    # Function to create logarithmic bins
+    def create_log_bins(data, num_bins=20):
+        min_val = max(data.min(), 0.1)  # Avoid zero or negative values for log scale
+        max_val = data.max()
+        return np.logspace(np.log10(min_val), np.log10(max_val), num_bins)
+    
+    # 1. Queue Time (created to running)
+    log_bins_queue = create_log_bins(df['queue_time'])
+    axes[0].hist(df['queue_time'], bins=log_bins_queue, color='skyblue', edgecolor='black', alpha=0.7)
+    axes[0].set_title('Queue Time (Created to Running)', fontsize=14)
+    axes[0].set_xlabel('Time (seconds) - Log Scale', fontsize=12)
+    axes[0].set_ylabel('Frequency', fontsize=12)
+    axes[0].set_xscale('log')
+    axes[0].grid(True, linestyle='--', alpha=0.7)
+    
+    # Add statistics as text
+    queue_stats = (
+        f"Mean: {df['queue_time'].mean():.2f}s\n"
+        f"Median: {df['queue_time'].median():.2f}s\n"
+        f"Mode: {queue_mode:.2f}s (count: {queue_mode_count})\n"
+        f"Min: {df['queue_time'].min():.2f}s\n"
+        f"Max: {df['queue_time'].max():.2f}s\n"
+        f"Std Dev: {df['queue_time'].std():.2f}s"
+    )
+    axes[0].text(0.95, 0.95, queue_stats, transform=axes[0].transAxes,
+                fontsize=10, verticalalignment='top', horizontalalignment='right',
+                bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
+    
+    # 2. Total Time (created to finished)
+    log_bins_total = create_log_bins(df['total_time'])
+    axes[1].hist(df['total_time'], bins=log_bins_total, color='lightgreen', edgecolor='black', alpha=0.7)
+    axes[1].set_title('Total Time (Created to Finished)', fontsize=14)
+    axes[1].set_xlabel('Time (seconds) - Log Scale', fontsize=12)
+    axes[1].set_ylabel('Frequency', fontsize=12)
+    axes[1].set_xscale('log')
+    axes[1].grid(True, linestyle='--', alpha=0.7)
+    
+    # Add statistics as text
+    total_stats = (
+        f"Mean: {df['total_time'].mean():.2f}s\n"
+        f"Median: {df['total_time'].median():.2f}s\n"
+        f"Mode: {total_mode:.2f}s (count: {total_mode_count})\n"
+        f"Min: {df['total_time'].min():.2f}s\n"
+        f"Max: {df['total_time'].max():.2f}s\n"
+        f"Std Dev: {df['total_time'].std():.2f}s"
+    )
+    axes[1].text(0.95, 0.95, total_stats, transform=axes[1].transAxes,
+                fontsize=10, verticalalignment='top', horizontalalignment='right',
+                bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
+    
+    # 3. Execution Time (running to finished)
+    log_bins_exec = create_log_bins(df['execution_time'])
+    axes[2].hist(df['execution_time'], bins=log_bins_exec, color='salmon', edgecolor='black', alpha=0.7)
+    axes[2].set_title('Execution Time (Running to Finished)', fontsize=14)
+    axes[2].set_xlabel('Time (seconds) - Log Scale', fontsize=12)
+    axes[2].set_ylabel('Frequency', fontsize=12)
+    axes[2].set_xscale('log')
+    axes[2].grid(True, linestyle='--', alpha=0.7)
+    
+    # Add statistics as text
+    exec_stats = (
+        f"Mean: {df['execution_time'].mean():.2f}s\n"
+        f"Median: {df['execution_time'].median():.2f}s\n"
+        f"Mode: {exec_mode:.2f}s (count: {exec_mode_count})\n"
+        f"Min: {df['execution_time'].min():.2f}s\n"
+        f"Max: {df['execution_time'].max():.2f}s\n"
+        f"Std Dev: {df['execution_time'].std():.2f}s"
+    )
+    axes[2].text(0.95, 0.95, exec_stats, transform=axes[2].transAxes,
+                fontsize=10, verticalalignment='top', horizontalalignment='right',
+                bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
+    
+    plt.tight_layout()
+    plt.savefig('job_execution_times_log.png', dpi=300, bbox_inches='tight')
+    
+    # Also create a version with linear scale for comparison
+    fig_linear, axes_linear = plt.subplots(3, 1, figsize=(12, 15))
+    
+    # 1. Queue Time (linear scale)
+    axes_linear[0].hist(df['queue_time'], bins=20, color='skyblue', edgecolor='black', alpha=0.7)
+    axes_linear[0].set_title('Queue Time (Created to Running)', fontsize=14)
+    axes_linear[0].set_xlabel('Time (seconds) - Linear Scale', fontsize=12)
+    axes_linear[0].set_ylabel('Frequency', fontsize=12)
+    axes_linear[0].grid(True, linestyle='--', alpha=0.7)
+    axes_linear[0].text(0.95, 0.95, queue_stats, transform=axes_linear[0].transAxes,
+                fontsize=10, verticalalignment='top', horizontalalignment='right',
+                bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
+    
+    # 2. Total Time (linear scale)
+    axes_linear[1].hist(df['total_time'], bins=20, color='lightgreen', edgecolor='black', alpha=0.7)
+    axes_linear[1].set_title('Total Time (Created to Finished)', fontsize=14)
+    axes_linear[1].set_xlabel('Time (seconds) - Linear Scale', fontsize=12)
+    axes_linear[1].set_ylabel('Frequency', fontsize=12)
+    axes_linear[1].grid(True, linestyle='--', alpha=0.7)
+    axes_linear[1].text(0.95, 0.95, total_stats, transform=axes_linear[1].transAxes,
+                fontsize=10, verticalalignment='top', horizontalalignment='right',
+                bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
+    
+    # 3. Execution Time (linear scale)
+    axes_linear[2].hist(df['execution_time'], bins=20, color='salmon', edgecolor='black', alpha=0.7)
+    axes_linear[2].set_title('Execution Time (Running to Finished)', fontsize=14)
+    axes_linear[2].set_xlabel('Time (seconds) - Linear Scale', fontsize=12)
+    axes_linear[2].set_ylabel('Frequency', fontsize=12)
+    axes_linear[2].grid(True, linestyle='--', alpha=0.7)
+    axes_linear[2].text(0.95, 0.95, exec_stats, transform=axes_linear[2].transAxes,
+                fontsize=10, verticalalignment='top', horizontalalignment='right',
+                bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
+    
+    plt.tight_layout()
+    plt.savefig('job_execution_times_linear.png', dpi=300, bbox_inches='tight')
+    
+    # Create a new figure for execution times by payload size
+    if 'payload_size' in df.columns:
+        # Get unique payload sizes
+        payload_sizes = sorted(df['payload_size'].unique())
+        
+        # Create figure with subplots
+        fig_payload, axes_payload = plt.subplots(3, 1, figsize=(14, 15))
+        
+        # 1. Queue Time by Payload Size
+        for i, size in enumerate(payload_sizes):
+            payload_data = df[df['payload_size'] == size]
+            axes_payload[0].boxplot(payload_data['queue_time'], positions=[i], 
+                                   widths=0.6, patch_artist=True,
+                                   boxprops=dict(facecolor=COLORBREWER_PALETTE.get(size, f'C{i}')),
+                                   medianprops=dict(color='black'))
+        
+        axes_payload[0].set_title('Queue Time by Payload Size', fontsize=14)
+        axes_payload[0].set_xlabel('Payload Size', fontsize=12)
+        axes_payload[0].set_ylabel('Time (seconds)', fontsize=12)
+        axes_payload[0].set_xticks(range(len(payload_sizes)))
+        axes_payload[0].set_xticklabels(payload_sizes)
+        axes_payload[0].grid(True, linestyle='--', alpha=0.7, axis='y')
+        
+        # Add mean values as text
+        for i, size in enumerate(payload_sizes):
+            payload_data = df[df['payload_size'] == size]
+            mean_time = payload_data['queue_time'].mean()
+            axes_payload[0].text(i, mean_time, f'{mean_time:.2f}s', 
+                               ha='center', va='bottom', fontsize=9)
+        
+        # 2. Total Time by Payload Size
+        for i, size in enumerate(payload_sizes):
+            payload_data = df[df['payload_size'] == size]
+            axes_payload[1].boxplot(payload_data['total_time'], positions=[i], 
+                                   widths=0.6, patch_artist=True,
+                                   boxprops=dict(facecolor=COLORBREWER_PALETTE.get(size, f'C{i}')),
+                                   medianprops=dict(color='black'))
+        
+        axes_payload[1].set_title('Total Time by Payload Size', fontsize=14)
+        axes_payload[1].set_xlabel('Payload Size', fontsize=12)
+        axes_payload[1].set_ylabel('Time (seconds)', fontsize=12)
+        axes_payload[1].set_xticks(range(len(payload_sizes)))
+        axes_payload[1].set_xticklabels(payload_sizes)
+        axes_payload[1].grid(True, linestyle='--', alpha=0.7, axis='y')
+        
+        # Add mean values as text
+        for i, size in enumerate(payload_sizes):
+            payload_data = df[df['payload_size'] == size]
+            mean_time = payload_data['total_time'].mean()
+            axes_payload[1].text(i, mean_time, f'{mean_time:.2f}s', 
+                               ha='center', va='bottom', fontsize=9)
+        
+        # 3. Execution Time by Payload Size
+        for i, size in enumerate(payload_sizes):
+            payload_data = df[df['payload_size'] == size]
+            axes_payload[2].boxplot(payload_data['execution_time'], positions=[i], 
+                                   widths=0.6, patch_artist=True,
+                                   boxprops=dict(facecolor=COLORBREWER_PALETTE.get(size, f'C{i}')),
+                                   medianprops=dict(color='black'))
+        
+        axes_payload[2].set_title('Execution Time by Payload Size', fontsize=14)
+        axes_payload[2].set_xlabel('Payload Size', fontsize=12)
+        axes_payload[2].set_ylabel('Time (seconds)', fontsize=12)
+        axes_payload[2].set_xticks(range(len(payload_sizes)))
+        axes_payload[2].set_xticklabels(payload_sizes)
+        axes_payload[2].grid(True, linestyle='--', alpha=0.7, axis='y')
+        
+        # Add mean values as text
+        for i, size in enumerate(payload_sizes):
+            payload_data = df[df['payload_size'] == size]
+            mean_time = payload_data['execution_time'].mean()
+            axes_payload[2].text(i, mean_time, f'{mean_time:.2f}s', 
+                               ha='center', va='bottom', fontsize=9)
+        
+        plt.tight_layout()
+        plt.savefig('job_execution_times_by_payload.png', dpi=300, bbox_inches='tight')
+        
+        # Create a summary table by payload size
+        payload_summary = []
+        for size in payload_sizes:
+            payload_data = df[df['payload_size'] == size]
+            queue_mode_ps, queue_mode_count_ps = calculate_mode(payload_data['queue_time'])
+            total_mode_ps, total_mode_count_ps = calculate_mode(payload_data['total_time'])
+            exec_mode_ps, exec_mode_count_ps = calculate_mode(payload_data['execution_time'])
+            
+            payload_summary.append({
+                'Payload Size': size,
+                'Queue Time Mean (s)': payload_data['queue_time'].mean(),
+                'Queue Time Median (s)': payload_data['queue_time'].median(),
+                'Queue Time Mode (s)': queue_mode_ps,
+                'Total Time Mean (s)': payload_data['total_time'].mean(),
+                'Total Time Median (s)': payload_data['total_time'].median(),
+                'Total Time Mode (s)': total_mode_ps,
+                'Execution Time Mean (s)': payload_data['execution_time'].mean(),
+                'Execution Time Median (s)': payload_data['execution_time'].median(),
+                'Execution Time Mode (s)': exec_mode_ps
+            })
+        
+        payload_summary_df = pd.DataFrame(payload_summary)
+        
+        print("\nJob Execution Time Summary by Payload Size:")
+        print(payload_summary_df.to_string(index=False, float_format=lambda x: f"{x:.2f}"))
+    
+    # Create a summary table
+    summary_df = pd.DataFrame({
+        'Metric': ['Queue Time', 'Total Time', 'Execution Time'],
+        'Mean (s)': [df['queue_time'].mean(), df['total_time'].mean(), df['execution_time'].mean()],
+        'Median (s)': [df['queue_time'].median(), df['total_time'].median(), df['execution_time'].median()],
+        'Mode (s)': [queue_mode, total_mode, exec_mode],
+        'Mode Count': [queue_mode_count, total_mode_count, exec_mode_count],
+        'Min (s)': [df['queue_time'].min(), df['total_time'].min(), df['execution_time'].min()],
+        'Max (s)': [df['queue_time'].max(), df['total_time'].max(), df['execution_time'].max()],
+        'Std Dev (s)': [df['queue_time'].std(), df['total_time'].std(), df['execution_time'].std()]
+    })
+    
+    print("\nJob Execution Time Summary:")
+    print(summary_df.to_string(index=False, float_format=lambda x: f"{x:.2f}"))
+    
+    return df[['queue_time', 'total_time', 'execution_time']]
 
 if __name__ == "__main__":
     # Example of using multiple CSV files
@@ -1015,14 +1931,36 @@ if __name__ == "__main__":
     plot_error_analysis(df)
     print("Error analysis plots saved as 'error_analysis.png'")
     
+    # Analyze error impact weights for Cap-score calculation
+    print("\nAnalyzing Error Impact Weights for Cap-score...")
+    payload_weight_gates, complexity_weight_gates, payload_weight_depth, complexity_weight_depth = analyze_error_impact_weights(df)
+    
     # Add Cap-score analysis
     print("\nGenerating Cap-score Analysis Plot...")
-    plot_cap_scores(df)
+    plot_cap_scores(df, payload_weight=payload_weight_gates, complexity_weight=complexity_weight_gates)
     print("Cap-score analysis plot saved as 'cap_scores_analysis.png'")
     
     # Add depth analysis
     print("\nGenerating Circuit Depth Analysis Plots...")
-    plot_depth_analysis(df)
+    plot_depth_analysis(df, payload_weight=payload_weight_depth, complexity_weight=complexity_weight_depth)
     print("Circuit depth analysis plots saved as:")
     print("- 'circuit_depth_analysis.png'")
     print("- 'depth_cap_scores_analysis.png'")
+    
+    # Add circuit width analysis
+    print("\nGenerating Circuit Width Analysis Plots...")
+    plot_circuit_width_analysis(df)
+    print("Circuit width analysis plots saved as 'circuit_width_analysis.png'")
+    
+    # Add circuit size binned analysis
+    print("\nGenerating Circuit Size Binned Analysis Plots...")
+    plot_circuit_size_binned_analysis(df)
+    print("Circuit size binned analysis plots saved as 'circuit_size_binned_analysis.png'")
+    
+    # Add job execution time analysis
+    print("\nGenerating Job Execution Time Analysis...")
+    analyze_job_execution_times(df)
+    print("Job execution time analysis plots saved as 'job_execution_times_log.png' and 'job_execution_times_linear.png'")
+    if 'payload_size' in df.columns:
+        print("Job execution times by payload size saved as 'job_execution_times_by_payload.png'")
+    
