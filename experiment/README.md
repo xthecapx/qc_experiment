@@ -1,8 +1,40 @@
-# MIT-iQuHack Jupyter Environment
+# Quantum Experiment Analysis
 
-This repository contains a Docker environment for running Jupyter notebooks.
+This directory contains quantum computing experiments and analyses that leverage the Quantum Code Quality Framework.
 
-## Requirements
+## Experiment Projects
+
+### 1. Circuit Depth Analysis (`circuit_depth_analysis/`)
+
+This project analyzes how circuit depth affects quantum algorithm performance. It includes:
+
+- Regression analysis of success rates vs circuit depth
+- Models predicting success rates based on circuit properties
+- Visualization of error distribution by circuit depth
+- Trained models for predicting quantum algorithm performance
+
+Key files:
+- `Model_Explorer.ipynb`: Interactive exploration of prediction models
+- `Regresion.ipynb`: Regression analysis of circuit depth impact
+- `Train_Model.ipynb`: Training predictive models for success rates
+- `Report depth.ipynb`: Comprehensive report on depth analysis
+
+### 2. Many Gates Results (`many_gates_results/`)
+
+This project analyzes how quantum circuits behave with varying numbers of gates. It includes:
+
+- Analysis of quantum circuit performance with increasing gate counts
+- 3D visualization of circuit complexity effects
+- Execution time analysis for different circuit sizes
+- Success rate experiments with different payload sizes
+
+Key files:
+- `ibm_breaking_gates_*.ipynb`: Experiments with different gate counts
+- `Report.ipynb` and `Report-CSV.ipynb`: Analysis reports
+- Various visualization outputs (PNG files)
+- Consolidated experiment results in CSV format
+
+## Setup and Environment
 
 - Docker
 - Docker Compose
