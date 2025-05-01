@@ -10,7 +10,7 @@ import pandas as pd
 import json
 import matplotlib.pyplot as plt
 from dotenv import load_dotenv
-from results import results_1_4_2000_2005
+# from results import results_1_4_2000_2005
 from qiskit.providers.fake_provider import GenericBackendV2
 
 # Load environment variables
@@ -32,14 +32,12 @@ class QuantumGate:
             getattr(qc, self.name)(qubit)
 
     def apply_conjugate(self, qc, qubit):
-        if self.name == 'u':
-            qc.u(-self.params[0], -self.params[2], -self.params[1], qubit)
-        elif self.name == 's':
-            qc.sdg(qubit)
-        elif self.name == 't':
-            qc.tdg(qubit)
+        if self.name == 's':
+            qc.sdg(qubit)  # S-dagger is the conjugate of S
+        elif self.name == 'sdg':
+            qc.s(qubit)    # S is the conjugate of S-dagger
         else:
-            # x and y are self-inverse
+            # x, z, h, y are self-inverse
             self.apply(qc, qubit)
 
 class TeleportationProtocol:
@@ -84,11 +82,12 @@ class TeleportationValidator:
         self.use_barriers = use_barriers
         self.save_statevector = save_statevector
         self.gate_types = {
-            'u': lambda: QuantumGate('u', self._generate_random_u_params()),
-            'x': lambda: QuantumGate('x'),
-            'y': lambda: QuantumGate('y'),
-            's': lambda: QuantumGate('s'),
-            't': lambda: QuantumGate('t')
+            'x': lambda: QuantumGate('x'),  # Pauli-X (self-inverse)
+            'y': lambda: QuantumGate('y'),  # Pauli-Y (self-inverse)
+            'z': lambda: QuantumGate('z'),  # Pauli-Z (self-inverse)
+            'h': lambda: QuantumGate('h'),  # Hadamard (self-inverse)
+            's': lambda: QuantumGate('s'),  # Phase gate
+            'sdg': lambda: QuantumGate('sdg'),  # S-dagger gate (inverse of S)
         }
         
         # Handle gates parameter
@@ -470,6 +469,10 @@ class Experiments:
     def run_payload_size_gates_correlation(self, start: int = 1, end: int = 10, 
                                          run_on_ibm: bool = False, channel: str = IBM_QUANTUM_CHANNEL, token: str = IBM_QUANTUM_TOKEN,
                                          show_circuit: bool = False):
+        # Create output filename with timestamp for this experiment run
+        timestamp = pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')
+        output_file = f'experiment_results_payload_correlation_{timestamp}.csv'
+        
         for size in range(start, end + 1):
             print(f"\nRunning experiment with payload_size={size} and gates={size}")
             
@@ -531,16 +534,19 @@ class Experiments:
             # Append to DataFrame
             self.results_df = pd.concat([self.results_df, pd.DataFrame([result_data])], ignore_index=True)
             print(f"Experiment {size}/{end} completed with status: {result_data['status']}")
-        
-        # Export results to CSV with timestamp
-        timestamp = pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')
-        self.export_to_csv(f'experiment_results_payload_correlation_{timestamp}.csv')
+            
+            # Save after each iteration to ensure data is not lost
+            self.export_to_csv(output_file)
         
         return self.results_df
 
     def run_fixed_payload_varying_gates(self, payload_size: int, start_gates: int = 1, end_gates: int = 10,
                                       run_on_ibm: bool = False, channel: str = IBM_QUANTUM_CHANNEL, token: str = IBM_QUANTUM_TOKEN,
                                       show_circuit: bool = False):
+        # Create output filename with timestamp for this experiment run
+        timestamp = pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')
+        output_file = f'experiment_results_fixed_payload_{payload_size}_{timestamp}.csv'
+        
         for num_gates in range(start_gates, end_gates + 1):
             print(f"\nRunning experiment with payload_size={payload_size} and gates={num_gates}")
             
@@ -608,10 +614,9 @@ class Experiments:
             # Append to DataFrame
             self.results_df = pd.concat([self.results_df, pd.DataFrame([result_data])], ignore_index=True)
             print(f"Experiment {num_gates}/{end_gates} completed with status: {result_data['status']}")
-        
-        # Export results to CSV with timestamp
-        timestamp = pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')
-        self.export_to_csv(f'experiment_results_fixed_payload_{payload_size}_{timestamp}.csv')
+            
+            # Save after each iteration to ensure data is not lost
+            self.export_to_csv(output_file)
         
         return self.results_df
 
@@ -625,6 +630,10 @@ class Experiments:
         """
         start_payload, end_payload = payload_range
         start_gates, end_gates = gates_range
+        
+        # Create output filename with timestamp for this experiment run
+        timestamp = pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')
+        output_file = f'experiment_results_dynamic_{start_payload}-{end_payload}_{start_gates}-{end_gates}_{timestamp}.csv'
         
         for payload_size in range(start_payload, end_payload + 1):
             for num_gates in range(start_gates, end_gates + 1):
@@ -688,10 +697,9 @@ class Experiments:
                 # Append to DataFrame
                 self.results_df = pd.concat([self.results_df, pd.DataFrame([result_data])], ignore_index=True)
                 print(f"Experiment with payload={payload_size}, gates={num_gates} completed with status: {result_data['status']}")
-        
-        # Export results to CSV with timestamp
-        timestamp = pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')
-        self.export_to_csv(f'experiment_results_dynamic_{start_payload}-{end_payload}_{start_gates}-{end_gates}_{timestamp}.csv')
+                
+                # Save after each iteration to ensure data is not lost
+                self.export_to_csv(output_file)
         
         return self.results_df
 
@@ -734,10 +742,18 @@ class Experiments:
     def export_to_csv(self, filename: str = 'experiment_results.csv'):
         """
         Exports the experiment results to a CSV file.
+        This version overwrites the file after each iteration to ensure data is not lost.
+        
         Args:
             filename (str): Name of the CSV file to save the results
         """
-        self.results_df.to_csv(filename, index=False)
+        # If file exists, check for header
+        header = True
+        if os.path.exists(filename):
+            header = False
+        
+        # Write the DataFrame to CSV (mode='w' to overwrite the file)
+        self.results_df.to_csv(filename, index=False, mode='w')
         print(f"Results exported to {filename}")
 
     def run_controlled_depth_experiment(self, payload_sizes: list = [1, 2, 3, 4, 5], max_depth: int = 5, 
@@ -763,7 +779,9 @@ class Experiments:
             show_circuit: Whether to display the circuit diagram
             show_histogram: Whether to display histograms of measurement results
         """
-        results = []
+        # Create output filename with timestamp for this experiment run
+        timestamp = pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')
+        output_file = f'experiment_results_controlled_depth_{timestamp}.csv'
         
         for payload_size in payload_sizes:
             print(f"\nRunning experiments for payload_size={payload_size}")
@@ -832,10 +850,9 @@ class Experiments:
                 # Append to DataFrame
                 self.results_df = pd.concat([self.results_df, pd.DataFrame([result_data])], ignore_index=True)
                 print(f"  Experiment completed with status: {result_data['status']}, circuit depth: {validator.circuit.depth()}")
-        
-        # Export results to CSV with timestamp
-        timestamp = pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')
-        self.export_to_csv(f'experiment_results_controlled_depth_{timestamp}.csv')
+                
+                # Save after each iteration to ensure data is not lost
+                self.export_to_csv(output_file)
         
         return self.results_df
 
@@ -904,6 +921,10 @@ class Experiments:
                             break
                 
                 all_combinations.append((depth, combinations_to_run))
+        
+        # Create output filename with timestamp for this experiment run
+        timestamp = pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')
+        output_file = f'experiment_results_target_depth_{timestamp}.csv'
         
         # Run experiments for each valid combination
         for depth, combinations in all_combinations:
@@ -975,13 +996,12 @@ class Experiments:
                 actual_depth = validator.circuit.depth()
                 print(f"  Experiment completed with status: {result_data['status']}, target depth: {depth}, actual depth: {actual_depth}")
                 
+                # Save after each iteration to ensure data is not lost
+                self.export_to_csv(output_file)
+                
                 # Verify if actual depth matches target depth
                 if actual_depth != depth:
                     print(f"  WARNING: Actual depth {actual_depth} does not match target depth {depth}")
-        
-        # Export results to CSV with timestamp
-        timestamp = pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')
-        self.export_to_csv(f'experiment_results_target_depth_{timestamp}.csv')
         
         return self.results_df
 
@@ -1115,6 +1135,38 @@ class Experiments:
                     df.at[idx, 'job_execution_spans'] = str(execution_spans)
                     df.at[idx, 'job_execution_duration'] = execution_duration
                     
+                    # Update missing information in the original columns
+                    if pd.isna(row.get('status')) or row.get('status') == 'pending':
+                        df.at[idx, 'status'] = 'completed'
+                    
+                    if pd.isna(row.get('counts')) or row.get('counts') == '':
+                        df.at[idx, 'counts'] = self._serialize_dict(counts)
+                    
+                    if pd.isna(row.get('success_rate')):
+                        df.at[idx, 'success_rate'] = success_rate
+                    
+                    if pd.isna(row.get('ibm_backend')) or row.get('ibm_backend') == '':
+                        df.at[idx, 'ibm_backend'] = job.backend().name
+                    
+                    # Update target_depth if missing
+                    if 'target_depth' in df.columns and (pd.isna(row.get('target_depth')) or row.get('target_depth') == ''):
+                        # Try to infer target_depth from other rows with similar payload and gates
+                        similar_rows = df[(df['payload_size'] == row['payload_size']) & 
+                                         (df['num_gates'] == row['num_gates']) & 
+                                         pd.notna(df['target_depth'])]
+                        
+                        if not similar_rows.empty:
+                            # Use the most common target depth value for similar configurations
+                            df.at[idx, 'target_depth'] = similar_rows['target_depth'].mode()[0]
+                        else:
+                            # If no similar rows found, calculate depth based on empirical formula
+                            # Formula from the comments in run_target_depth_experiment:
+                            # depth = base_depth + 2 * (gates / payload_size) - 2
+                            # base_depth = 13 + 2 * (payload_size - 1)
+                            base_depth = 13 + 2 * (row['payload_size'] - 1)
+                            calculated_depth = base_depth + 2 * (row['num_gates'] / row['payload_size']) - 2
+                            df.at[idx, 'target_depth'] = calculated_depth
+                    
                     print(f"Updated job {row['ibm_job_id']} information")
                 except Exception as e:
                     print(f"Error processing job {row['ibm_job_id']}: {str(e)}")
@@ -1123,6 +1175,10 @@ class Experiments:
                     df.at[idx, 'job_quantum_duration'] = 0.0
                     df.at[idx, 'job_success_rate'] = 0.0
                     df.at[idx, 'job_execution_duration'] = 0.0
+                    
+                    # If status is still pending, mark as error
+                    if row.get('status') == 'pending':
+                        df.at[idx, 'status'] = 'error'
         
         # Save the updated DataFrame
         df.to_csv(output_csv, index=False)
@@ -1238,3 +1294,115 @@ class Experiments:
         print(f"Results exported to {output_csv}")
         
         return df
+
+    def run_fixed_payload_experiments(self, payload_gates_map: dict = None, iterations: int = 10,
+                                  run_on_ibm: bool = False, channel: str = IBM_QUANTUM_CHANNEL, token: str = IBM_QUANTUM_TOKEN,
+                                  show_circuit: bool = True, show_histogram: bool = False):
+        """
+        Run experiments with fixed payload sizes and corresponding number of gates.
+        
+        For each payload size, runs the specified number of iterations with the specified number of gates.
+        Default configuration follows the pattern:
+        - For payload_size=1: 10 experiments with 3 gates
+        - For payload_size=2: 10 experiments with 6 gates 
+        - For payload_size=3: 10 experiments with 9 gates
+        - For payload_size=4: 10 experiments with 12 gates
+        - For payload_size=5: 10 experiments with 15 gates
+        
+        Args:
+            payload_gates_map: Dictionary mapping payload sizes to number of gates
+                              (default: {1:3, 2:6, 3:9, 4:12, 5:15})
+            iterations: Number of experiments to run for each payload size
+            run_on_ibm: Whether to run on IBM quantum hardware
+            channel: IBM Quantum channel
+            token: IBM Quantum token
+            show_circuit: Whether to display the circuit diagram
+            show_histogram: Whether to display histograms of measurement results
+        """
+        # Default payload-gates map if not provided
+        if payload_gates_map is None:
+            payload_gates_map = {
+                1: 3,
+                2: 6,
+                3: 9,
+                4: 12,
+                5: 15
+            }
+        
+        # Create output filename with timestamp for this experiment run
+        timestamp = pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')
+        output_file = f'experiment_results_fixed_payload_{timestamp}.csv'
+        
+        # Run experiments for each payload size and gates configuration
+        for payload_size, num_gates in payload_gates_map.items():
+            print(f"\nRunning {iterations} experiments with payload_size={payload_size}, gates={num_gates}")
+            
+            for iteration in range(1, iterations + 1):
+                print(f"  Running experiment {iteration}/{iterations} with payload_size={payload_size}, gates={num_gates}")
+                
+                use_barriers = not run_on_ibm
+                validator = TeleportationValidator(
+                    payload_size=payload_size,
+                    gates=num_gates,
+                    use_barriers=use_barriers
+                )
+                
+                if show_circuit:
+                    display(validator.draw())
+                
+                # Determine actual execution type based on result
+                execution_type = "simulation"
+                if run_on_ibm and channel and token:
+                    ibm_result = validator.run_on_ibm(channel, token)
+                    if ibm_result["status"] == "completed" or ibm_result["status"] == "pending":
+                        execution_type = "ibm"
+                    
+                    result_data = self._prepare_result_data(
+                        validator=validator,
+                        status=ibm_result["status"],
+                        execution_type=execution_type,
+                        experiment_type="fixed_payload_experiments",
+                        payload_size=payload_size,
+                        num_gates=num_gates
+                    )
+                    
+                    if ibm_result["status"] == "completed":
+                        result_data.update({
+                            "counts": self._serialize_dict(ibm_result["counts"]),
+                            "success_rate": ibm_result["counts"].get('0' * payload_size, 0) / sum(ibm_result["counts"].values()),
+                            "ibm_job_id": ibm_result.get("job_id"),
+                            "ibm_backend": ibm_result.get("backend"),
+                            "iteration": iteration
+                        })
+                    elif ibm_result["status"] == "error":
+                        # Fallback to simulation if IBM execution failed
+                        sim_result = validator.run_simulation(show_histogram=show_histogram)
+                        result_data.update({
+                            "status": "completed",
+                            "counts": self._serialize_dict(sim_result["results_metrics"]["counts"]),
+                            "success_rate": sim_result["results_metrics"]["success_rate"],
+                            "ibm_error": ibm_result.get("error"),
+                            "iteration": iteration
+                        })
+                else:
+                    sim_result = validator.run_simulation(show_histogram=show_histogram)
+                    result_data = self._prepare_result_data(
+                        validator=validator,
+                        status="completed",
+                        execution_type="simulation",
+                        experiment_type="fixed_payload_experiments",
+                        payload_size=payload_size,
+                        num_gates=num_gates,
+                        counts=sim_result["results_metrics"]["counts"],
+                        success_rate=sim_result["results_metrics"]["success_rate"]
+                    )
+                    result_data["iteration"] = iteration
+                
+                # Append to DataFrame
+                self.results_df = pd.concat([self.results_df, pd.DataFrame([result_data])], ignore_index=True)
+                print(f"  Experiment completed with status: {result_data['status']}, circuit depth: {validator.circuit.depth()}")
+                
+                # Save after each iteration to ensure data is not lost
+                self.export_to_csv(output_file)
+        
+        return self.results_df

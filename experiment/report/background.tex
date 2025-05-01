@@ -1,0 +1,31 @@
+\section*{Background}
+\subsection*{pre-runtime and post-runtime metrics}
+
+% Pre-runtime metrics (before execution)
+The number of qubits required by a quantum circuit is a fundamental metric, as it determines the scale of the quantum processor needed for execution \cite{malhotraSystematicReviewQuantum_2024-[1]}. The total number of quantum gates and the circuit depth (number of sequential gate layers) are key indicators of circuit complexity and are used to estimate the computational resources required \cite{malhotraSystematicReviewQuantum_2024-[2]}. The types of gates present in a circuit (e.g., Clifford, non-Clifford, entangling gates) influence both the theoretical and practical difficulty of implementation and simulation \cite{knillRandomizedBenchmarkingQuantum2008_2008-[3]}. The pattern of interactions between qubits, or qubit connectivity, affects the efficiency of gate operations and the feasibility of mapping circuits to hardware \cite{malhotraSystematicReviewQuantum_2024-[3]}. Theoretical circuit complexity, such as the number of operations or the expected classical simulation difficulty, is often assessed before execution to anticipate performance and scalability \cite{malhotraSystematicReviewQuantum_2024-[4]}.
+
+% Post-runtime metrics (after execution)
+The time taken to execute a quantum circuit on hardware or a simulator is a practical measure of performance and is influenced by both circuit and device characteristics \cite{malhotraSystematicReviewQuantum_2024-[5]}. The success rate or average fidelity quantifies how often the correct or expected output is obtained, serving as a primary indicator of quantum circuit reliability \cite{knillRandomizedBenchmarkingQuantum2008_2008-[4],heinrichRandomizedBenchmarkingRandom_2023-[10]}. Measured error rates for gates, readout, or the entire circuit provide insight into the sources and magnitudes of noise affecting computation \cite{knillRandomizedBenchmarkingQuantum2008_2008-[5],malhotraSystematicReviewQuantum_2024-[6]}. The distribution of errors across different runs or qubits helps identify systematic issues and hardware limitations \cite{heinrichRandomizedBenchmarkingRandom_2023-[11]}. The probability distribution of measured output states is analyzed to assess the accuracy and randomness of quantum computations \cite{heinrichRandomizedBenchmarkingRandom_2023-[12]}. State Preparation And Measurement (SPAM) errors are often measured or estimated post-runtime, as they can significantly affect the observed fidelity of quantum operations \cite{knillRandomizedBenchmarkingQuantum2008_2008-[6]}. Actual hardware resources used, such as the number of shots or memory, are tracked to evaluate the efficiency and scalability of quantum experiments \cite{malhotraSystematicReviewQuantum_2024-[7]}.
+
+\subsection*{Benchmarking variants}
+
+Several benchmarking variants are used to assess the performance and reliability of quantum computers:
+
+- Randomized Benchmarking (RB): A protocol to assess the average error rates of quantum gates, typically using random sequences of Clifford gates. Variants include standard RB, direct RB, mirror RB, filtered RB, interleaved RB, simultaneous RB, character RB, and cycle RB, each targeting specific error types or gate sets \cite{knillRandomizedBenchmarkingQuantum2008_2008-[3],heinrichRandomizedBenchmarkingRandom_2023-[9],malhotraSystematicReviewQuantum_2024-[68]}.
+
+- Application-Oriented Benchmarking: Runs real-world quantum algorithms or protocols to assess practical performance and utility, focusing on how well quantum systems handle specific tasks \cite{malhotraSystematicReviewQuantum_2024-[2]}.
+
+- Volumetric Benchmarking: Uses rectangular circuits of varying width (qubits) and depth (gate layers) to map out the "quantum volume" a device can reliably handle. Quantum Volume is a widely used metric in this category \cite{malhotraSystematicReviewQuantum_2024-[6]}.
+
+- Quantum Tomography: Includes state tomography, process tomography, and gate set tomography, which reconstruct quantum states or operations to provide detailed information about system performance, though these methods are resource-intensive and less scalable \cite{malhotraSystematicReviewQuantum_2024-[4]}.
+
+- Cycle Benchmarking: Repeatedly applies cycles of quantum gates to amplify and diagnose specific errors, such as crosstalk or correlated errors \cite{malhotraSystematicReviewQuantum_2024-[5]}.
+
+- Miscellaneous/Hybrid Approaches: Includes new or hybrid protocols that combine elements of the above, such as hybrid benchmarking, matchgate benchmarking, and random circuit sampling \cite{heinrichRandomizedBenchmarkingRandom_2023-[19]}.
+
+\subsection*{Randomize benchmarking}
+
+\subsection*{Distributed quantum computing}
+
+\subsection*{The teleportation protocol}
+
