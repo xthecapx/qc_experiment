@@ -1,4 +1,4 @@
-\section*{Introduction}
+\section*{Introduction}\label{sec:introduction}
 
 In recent years, companies like Google, AWS, IonQ, IBM, and Microsoft have led the race to build practical quantum computer (QPU). Up to this day, a number of chips have been released, which include Willow \cite{acharyaQuantumErrorCorrection2025_2025}, Majorana 1 \cite{aasenRoadmapFaultTolerant2025_2025}, Ocelot \cite{puttermanHardwareefficientQuantumErrora_2025} and Heron \cite{abughanemIBMQuantumComputers_2025} taking quantum utility one step closer. A common feature of these state-of-the-art chips is the improvement in error corrections, which in the case of Google and Amazon chips includes randomized benchmarking (RB) at the level of logical qubits.
 
@@ -14,6 +14,10 @@ Although the benchmarking techniques described above provide valuable insights, 
 
 In classical computing, a distributed system's performance is measured through throughput and latency, its scalability is tested by examining the workload on the client and server, the availability of the system is often measured by the degradation of throughput caused by failure, and the consistency of the system is often measured by the staleness of data across different locations \cite{andreoliniBenchmarkingModelsTools_2002}. As opposed than classical computing, QC's distributed system is just getting started. As a first step towards distributed QC, researchers have already achieved teleportation between two physically separate QPUs \cite{kangTeleportingTwoqubitEntanglementa_2025}. 
 
-Motivated by the need to address of quantum distributed systems, we introduce an algorithm inspired by the teleportation protocol that can benchmark either a single or multiple QPUs. As a high-level overview, the algorithm is designed to scale in qubits by connecting bell pairs, and incorporates a RB benchmark applied to both the payload and transport state to calculate operation fidelity.
+Motivated by the need for distributed benchmarking, we introduce an algorithm inspired by the teleportation protocol (TP) that can benchmark either a single or multiple QPUs. As a high-level overview, the algorithm is designed to scale in qubits by connecting bell pairs, and incorporates a RB benchmark applied to both the payload and transport state to later calculate post-runtime metrics. This approach provides a framework to investigate fundamental aspects of quantum circuits. Specifically, our work is driven by two primary research questions:
+\begin{enumerate}
+    \item \label{RQ1} How do pre-runtime structural characteristics of quantum circuits (such as payload size, circuit depth, gate count, and gate types) relate to post-runtime outcomes, including execution success rates, execution time, cost, and quantum information degradation?
+    \item \label{RQ2} How can pre-runtime metrics be utilized—such as through embedding vectors—to enable the prediction of post-runtime metrics for arbitrary quantum circuits?
+\end{enumerate}
 
 The remainder of this paper is organized as follows: Section 1 provides background on randomized benchmarking; Section 2 details the proposed algorithm; Section 3 presents the experimental results; and Section 4 concludes the paper.

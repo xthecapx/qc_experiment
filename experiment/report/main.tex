@@ -101,7 +101,10 @@
 
 % array package and thick rules for tables
 \usepackage{array}
-\usepackage{subfiles} 
+\usepackage{subfiles}
+
+\usepackage{physics}
+\usepackage{enumitem}
 
 % create "+" rule type for thick vertical lines
 \newcolumntype{+}{!{\vrule width 2pt}}
@@ -144,6 +147,7 @@
 \renewcommand{\@biblabel}[1]{\quad#1.}
 \makeatother
 
+\usepackage{caption}
 
 
 % Header and Footer with logo
@@ -222,7 +226,7 @@ Kelly Garces\textsuperscript{1},
 \section*{Abstract}
 % In anticipation of quantum computing entering the quantum utility era, it is imperative to provide developers with a set of metrics that will allow them to determine how much trust they can place in the execution of their programs. This study presents a novel algorithm inspired by the teleportation protocol to benchmark quantum hardware. The algorithm is divided into three parts: the payload, composed of entangled qubits with random gates applied to each wire; the bridge, which corresponds to the inspired-teleportation protocol; and the inverse operation of the payload, leading to an output equal to the initial state of the circuit. The study evaluated the algorithm's success, error distributions, and circuit complexity metrics by using both the AerSimulator and IBM quantum devices to run the code. The Cap-Score metric is introduced, combining success rates with circuit complexity to provide a comprehensive assessment of quantum hardware capabilities. The analysis reveals significant correlations between payload size, gate count, and the generated error through an evaluation of the success rates, providing developers with quantitative benchmarks to assess hardware reliability and scalability limitations for their quantum applications.
 
-With the advent of more quantum computing applications, it is imperative to provide developers with a set of metrics to determine how much trust they can place in the execution of their programs. This study presents an algorithm inspired by the teleportation protocol to benchmark quantum hardware and define the fidelity of a quantum circuit. The algorithm is divided into three parts: the payload, composed of entangled qubits with random gates applied to each wire; the bridge, which corresponds to the teleportation-inspired protocol; and the inverse operation of the payload, leading to an output equal to the initial state of the circuit. We evaluated the algorithm's success, error distributions, and circuit complexity metrics when scaling the number of qubit and gates. We use the AerSimulator and IBM quantum devices to run the code. The Capacity Score metric is introduced, combining success rates with circuit complexity to provide a comprehensive assessment of quantum hardware capabilities. The analysis of success rates reveals significant correlations between payload size, gate count, and the generated error, providing developers with quantitative benchmarks to assess hardware reliability and scalability limitations for their quantum applications
+With the advent of more quantum computing applications, it is imperative to provide developers with a set of metrics to determine how much trust they can place in the execution of their programs. This study proposes an algorithm based on the teleportation protocol for benchmarking quantum hardware and defining the fidelity of quantum gates. The algorithm is divided into three parts: the payload, composed of entangled qubits with random gates applied to each wire; the bridge, which corresponds to the teleportation-inspired protocol; and the inverse operation of the payload, leading to an output equal to the initial state of the circuit. We validated the algorithm by using both simulation (AerSimulator) and real quantum hardware (IBM quantum device), analyzing pre-runtime circuit metrics (qubit count, number of gates, circuit depth, etc.) alongside post-runtime results (execution time, success rate, error distribution). The analysis of success rates reveals significant correlations between payload size, gate count, and the generated error, providing developers with quantitative benchmarks to assess hardware reliability and scalability limitations for their quantum applications.
 
 % Please keep the Author Summary between 150 and 200 words
 % Use first person. PLOS ONE authors please skip this step. 
@@ -236,6 +240,7 @@ With the advent of more quantum computing applications, it is imperative to prov
 \subfile{background}
 \subfile{algorithm}
 \subfile{experiment}
+\subfile{results}
 \subfile{conclusions}
 
 % \section*{Supporting information}

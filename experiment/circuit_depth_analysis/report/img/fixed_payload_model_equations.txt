@@ -1,0 +1,62 @@
+# Fixed Payload Experiment Regression Models
+
+Model 1: All features (linear):
+success_rate = 0.011249 + 0.083592 * circuit_depth - 0.029568 * circuit_size + 0.016099 * circuit_width - 0.008824 * payload_size
+
+R-squared: 0.7383
+Adjusted R-squared: 0.7357
+AIC: -150.0958
+BIC: -144.8656
+
+--------------------------------------------------------------------------------
+
+Model 2: Log-transformed target:
+success_rate = 0.008037 + 0.050961 * circuit_depth - 0.069318 * circuit_size + 0.002740 * circuit_width - 0.010685 * payload_size
+
+R-squared: 0.8776
+Adjusted R-squared: 0.8764
+AIC: 78.4662
+BIC: 83.6964
+
+--------------------------------------------------------------------------------
+
+Model 3: With interaction terms:
+success_rate = 0.013860 + 0.107138 * circuit_depth - 0.013651 * circuit_size + 0.023978 * circuit_width - 0.008801 * payload_size - 0.066192 * depth_x_payload + 0.018790 * size_x_payload - 0.013386 * width_x_payload
+
+R-squared: 0.8689
+Adjusted R-squared: 0.8662
+AIC: -217.8716
+BIC: -210.0262
+
+--------------------------------------------------------------------------------
+
+Model 4: With quadratic terms:
+success_rate = 0.003682 + 0.015794 * circuit_depth - 0.073282 * circuit_size - 0.006296 * circuit_width - 0.008670 * payload_size + 0.019565 * circuit_depth_sq + 0.000914 * circuit_size_sq - 0.037425 * circuit_width_sq + 0.008371 * payload_size_sq
+
+R-squared: 0.8689
+Adjusted R-squared: 0.8662
+AIC: -217.8716
+BIC: -210.0262
+
+--------------------------------------------------------------------------------
+
+Model 5: Feature selection:
+success_rate = 0.011249 + 0.083592 * circuit_depth - 0.029568 * circuit_size + 0.016099 * circuit_width - 0.008824 * payload_size
+
+R-squared: 0.7383
+Adjusted R-squared: 0.7357
+AIC: -150.0958
+BIC: -144.8656
+
+--------------------------------------------------------------------------------
+
+Model 6: Weighted Least Squares:
+success_rate = 0.009585 + 0.071348 * circuit_depth - 0.024554 * circuit_size + 0.013835 * circuit_width - 0.007461 * payload_size
+
+R-squared: 0.7200
+Adjusted R-squared: 0.7172
+AIC: -185.9651
+BIC: -180.7349
+
+--------------------------------------------------------------------------------
+

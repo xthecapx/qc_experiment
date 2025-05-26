@@ -1,0 +1,26 @@
+\section*{Conclusion}\label{sec:conclusion}
+
+The primary conclusion drawn in this article is the successful formulation of vTP to streamline benchmarking processes. This research effectively implements a hybrid benchmarking approach on a QPU to establish correlations between pre-runtime and post-runtime metrics. The conclusion is supported through theoretical analysis, simulation analysis, and empirical testing on an actual quantum device.
+
+Following the chronological order of the research, circuit optimization performed by runtime services significantly mitigates the impact of redundant single-qubit gates. This was corroborated by observing that there was no significant degradation in success rates when vTP was executed with up to 20,000 gates in the payload and a corresponding number in the validation sequence (totaling ~40,000 single-qubit operations). This highlights the efficacy of the IBM Quantum runtime service's optimization capabilities in such scenarios.
+
+Furthermore, this research presents evidence of correlation between pre-runtime circuit metrics and post-runtime performance (error rates). Firstly, the increase in depth is associated with higher error rates. Given that circuit depth correlates with QPU execution time and the number of operational layers, our findings suggest that deeper circuits, requiring longer execution times, are more susceptible to error accumulation. Secondly, a robust correlation was observed between the number of two-qubit operations and error rates, indicating that an increase in the entanglement of qubits within the algorithm results in a higher occurrence of errors.
+
+In summary, our findings suggest that quantum algorithm development should prioritize minimizing the number of actively entangled qubits and managing circuit depth, as these metrics were correlated with higher errors. Keep in mind that compiler optimizations largely mitigate errors from single-qubit operations, but multi-qubit operations and high-depth errors persist, so decomposing complex two-qubit operations into pre-shared entanglement sequences and single-qubit operations offers a promising strategy. In other words, the result of our research suggests a strategy of potentially trading an increase in ancillary qubit resources (spatial) and a sequence of single-qubit operations for a reduction in direct, error-prone two-qubit gates as an optimization strategy for quantum circuits.
+
+\section*{Future work}\label{sec:future_work}
+
+The current study establishes a foundation for future research into a broader range of pre-runtime metrics capable of characterizing quantum circuits. A key objective will be to utilize these metrics to develop a robust, reduced-dimensionality 'footprint' for quantum circuits. Such a footprint could enable classical hardware to forecast post-runtime metrics, thereby providing developers with valuable preliminary insights before QPU execution.
+
+A practical objective is the development of a comprehensive toolkit to assist developers and researchers in capturing pre-runtime metrics and correlating them with post-runtime outcomes derived from various QPUs. Subsequent work will involve rigorously testing an expanded set of pre-runtime metrics to identify correlations with additional post-runtime characteristics, including execution time and computational cost.
+
+Longer-term research efforts, as an increased volume of data is acquired, future research efforts will focus on employing artificial intelligence methodologies for predictive modeling of post-runtime metrics. This will include assessing various machine learning models for their capability to forecast the behavior of quantum circuits, particularly those whose complexity renders them intractable for classical simulation.
+
+\section*{AI Tools and Services Acknowledgement}
+
+The authors acknowledge the use of several AI-powered tools and services that contributed to the preparation of this manuscript and the underlying research. Language and grammar correction, alongside general writing improvements, were assisted by AI models, including those utilized through Writefull.com. Literature discovery and the identification of related studies were aided by AI-driven platforms such as Elicit.com. Furthermore, aspects of code development, particularly the generation of plotting scripts for data visualization and code snippets to facilitate the understanding of quantum circuits, were supported by the AI-based coding assistant Cursor. These tools were employed to augment the authors' capabilities, while the core research, experimental design, data interpretation, and final conclusions remain the intellectual work of the authors.
+
+
+% 1. creating models to predict with the capture data,
+% 2. create tools to help capturing pre-runtime and calculating post-runtime metrics
+% 3. Explore different ways to reduce the dimensionality of quantum circuits using pre-runtime metrics as descriptors.

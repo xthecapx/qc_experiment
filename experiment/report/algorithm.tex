@@ -1,0 +1,87 @@
+\section*{Algorithm design}\label{sec:algorithm}
+
+To get started, we intended to run hybrid benchmarking using TP. However, running the protocol on a single qubit requires extra complexity to ensure that the chip uses physically separated qubits. Typically, we can target two distant qubits on the same chip by performing many swap operations prior to protocol preparation, but this setup would introduce additional errors.
+
+Therefore, we modified the protocol so that, instead of transporting quantum information between two distant qubits, we could test the quantum state while being subject only to errors from the required gates of the algorithm and those introduced by the hybrid benchmark in the payload (M in the equations).
+
+In this paper, we propose a novel algorithm for testing quantum states in a quantum circuit. Inspired by TP, our algorithm propagates the state through the circuit instead of transmitting quantum information between distant qubits. This method enables us to analyze random operations using a hybrid benchmark framework.
+
+\subsection*{Variation of the Teleportation Protocol (vTP)}
+
+As with TP, vTP can be described in three main phases: first, the preparation of the quantum state (the message qubit M) to be processed; second, the application of the core protocol gates (Bell State setup); and third, the state reconstruction or transformation. vTP notably differs from standard TP in the last phase: it employs CNOT and CZ gates instead of measurement operations, and it does not require a classical communication channel for state reconstruction.
+
+The vTP circuit diagram is presented in Figure~\ref{fig:vtp_circuit}.
+
+\begin{figure}[ht]
+    \centering
+    \includegraphics[width=0.9\textwidth]{vtp_circuit_grayscale.png}
+    \caption{The quantum circuit for vTP, with barriers demarcating key stages. The diagram shows payload preparation, followed by the standard TP gates, then the unique vTP operations. The final parts illustrate the validation sequence and measurement operations used to determine execution success.}
+    \label{fig:vtp_circuit}
+\end{figure}
+
+To start with the theoretical analysis of vTP, first we need to expand the Bell state of  Equation~\ref{eq:teleportation_rewritten_state} for the qubit M and A using the computational basis:
+
+\begin{equation}
+\begin{split}
+\ket{\Psi_{MAB}} = \frac{1}{2} [ & \ket{00}_{MA}(\alpha\ket{0} + \beta\ket{1})_B + \ket{01}_{MA}(\alpha\ket{1} + \beta\ket{0})_B \\
+& + \ket{10}_{MA}(\alpha\ket{0} - \beta\ket{1})_B + \ket{11}_{MA}(\alpha\ket{1} - \beta\ket{0})_B ]
+\end{split}
+\label{eq:teleportation_expanded_for_variation}
+\end{equation}
+
+The standard TP involves Alice executing the measure operation on her qubits M and A, followed by sending the results to Bob via the classical communication channel in order to reconstruct her quantum state.
+
+However, at this point, vTP and TP diverge. Instead of conditional operations and measurements, vTP unconditionally applies two gates: first, a \textbf{CX} gate between qubits A and B (\(CX_{AB}\), with A as control and B as target), followed by a \textbf{CZ} gate between qubits M and B (\(CZ_{MB}\), with M as control and B as target).
+
+To observe the effect of this new gate sequence on the state \(\ket{\Psi_{MAB}}\) from Equation~\ref{eq:teleportation_expanded_for_variation}, we apply these operations sequentially.
+
+\subsubsection*{Effect of $CX_{AB}$}
+
+Because quantum gates act linearly on superpositions, we can evaluate the action of \(CX_{AB}\) on the state in Equation~\ref{eq:teleportation_expanded_for_variation} term by term. Recall that \(CX_{AB}\) flips the target qubit B if the control qubit A is in state \(\ket{1}\). Applying it to each computational-basis component yields:
+\begin{align}
+CX_{AB}\ket{00}_{MA}(\alpha\ket{0} + \beta\ket{1})_B &= \ket{00}_{MA}(\alpha\ket{0} + \beta\ket{1})_B,\\
+CX_{AB}\ket{01}_{MA}(\alpha\ket{1} + \beta\ket{0})_B &= \ket{01}_{MA}(\alpha\ket{0} + \beta\ket{1})_B,\\
+CX_{AB}\ket{10}_{MA}(\alpha\ket{0} - \beta\ket{1})_B &= \ket{10}_{MA}(\alpha\ket{0} - \beta\ket{1})_B,\\
+CX_{AB}\ket{11}_{MA}(\alpha\ket{1} - \beta\ket{0})_B &= \ket{11}_{MA}(\alpha\ket{0} - \beta\ket{1})_B.
+\end{align}
+
+Combining these, the state after \(CX_{AB}\), denoted \(\ket{\Psi'_{MAB}}\), becomes:
+\begin{equation}
+\begin{split}
+\ket{\Psi'_{MAB}} = \frac{1}{2} [ & \ket{00}_{MA}(\alpha\ket{0} + \beta\ket{1})_B + \ket{01}_{MA}(\alpha\ket{0} + \beta\ket{1})_B \\
+& + \ket{10}_{MA}(\alpha\ket{0} - \beta\ket{1})_B + \ket{11}_{MA}(\alpha\ket{0} - \beta\ket{1})_B ]
+\end{split}
+\label{eq:state_after_cx_ab}
+\end{equation}
+
+This state can be factorized as follows:
+
+\begin{equation}
+\ket{\Psi'_{MAB}} = \ket{+}_A \otimes \frac{1}{\sqrt{2}} [ \ket{0}_M (\alpha\ket{0} + \beta\ket{1})_B + \ket{1}_M (\alpha\ket{0} - \beta\ket{1})_B ]
+\label{eq:factorized_after_cx_ab}
+\end{equation}
+where \(\ket{+}_A = \frac{1}{\sqrt{2}}(\ket{0}_A + \ket{1}_A)\).
+
+\subsubsection*{Effect of \(CZ_{MB}\)}
+
+Next, we apply \(CZ_{MB}\) to the state \(\ket{\Psi'_{MAB}}\) from Equation~\ref{eq:factorized_after_cx_ab}. In this case, the \(\ket{+}_A\) factor is unaffected. 
+
+We focus on the MB part:
+\begin{align}
+\begin{split}
+CZ_{MB} & \left( \frac{1}{\sqrt{2}} [ \ket{0}_M (\alpha\ket{0} + \beta\ket{1})_B + \ket{1}_M (\alpha\ket{0} - \beta\ket{1})_B ] \right) \\
+&= \frac{1}{\sqrt{2}} [ \ket{0}_M (\alpha\ket{0} + \beta\ket{1})_B + \ket{1}_M Z_B(\alpha\ket{0} - \beta\ket{1})_B ] \\
+&= \frac{1}{\sqrt{2}} [ \ket{0}_M (\alpha\ket{0} + \beta\ket{1})_B + \ket{1}_M (\alpha\ket{0} + \beta\ket{1})_B ] \\
+&= \frac{1}{\sqrt{2}} (\ket{0}_M + \ket{1}_M) \otimes (\alpha\ket{0} + \beta\ket{1})_B \\
+&= \ket{+}_M \otimes (\alpha\ket{0} + \beta\ket{1})_B
+\end{split}
+\label{eq:mb_part_after_cz_mb}
+\end{align}
+
+Therefore, the total final state after applying \(CZ_{MB} CX_{AB}\) is:
+\begin{equation}
+\ket{\Psi''_{MAB}} = \ket{+}_A \otimes \ket{+}_M \otimes (\alpha\ket{0} + \beta\ket{1})_B
+\label{eq:final_state_variation}
+\end{equation}
+
+From Equation~\ref{eq:final_state_variation}, we observe that the quantum state of Bob's qubit (B) is \((\alpha\ket{0} + \beta\ket{1})_B\), which is identical to the original state of Alice's message qubit M (as described in Equation~\ref{eq:teleportation_initial_state}). Furthermore, qubits M and A are now in the \(\ket{+}_M\) and \(\ket{+}_A\) states, respectively, and all three qubits (M, A, B) are disentangled. This confirms that vTP successfully transfers the initial state of M to B without relying on measurement operations, a classical communication channel, or conditional gate logic, making it suitable for hybrid benchmarks, including those on a single GPU.

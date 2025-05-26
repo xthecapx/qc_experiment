@@ -1,0 +1,30 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+1. **Files in Context**
+   - Use content from these files as the basis for background sections:
+     - [RB_quantum_gates.tex](mdc:experiment/report/RB_quantum_gates.tex)
+     - [RB_random_circuits.tex](mdc:experiment/report/RB_random_circuits.tex)
+     - [review.tex](mdc:experiment/report/review.tex)
+     - [teleportation.tex](mdc:experiment/report/teleportation.tex)
+     - [distributed_quantum.tex](mdc:experiment/report/distributed_quantum.tex)
+
+2. **Question-Driven Brainstorming**
+   - Only answer specific questions about these articles to help brainstorm and understand what to write.
+   - Do NOT generate or add any text to LaTeX sections unless explicitly requested.
+
+3. **Referencing Convention**
+   - When referencing sources cited as bracketed numbers (e.g., [1], [2], [1,2]), use:
+     - Single reference: \cite{<main_cite_key>-[N]}
+       - Example: \cite{sprangerUnderstandingQuantumTeleportation_2023-[3]}
+     - Multiple references: \cite{<main_cite_key>-[N,M]}
+       - Example: \cite{sprangerUnderstandingQuantumTeleportation_2023-[1,2]}
+   - This allows mapping to actual references later.
+
+4. **Missing References**
+   - If a reference is missing or unclear, note as -[cite-XX] for later completion.
+
+5. **No Section Writing Yet**
+   - Do NOT generate or add any text to LaTeX sections until specifically requested.

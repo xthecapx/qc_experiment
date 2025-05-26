@@ -57,8 +57,8 @@ class TeleportationProtocol:
         # Prepare the entangled pair (Bell state) between Alice and Bob
         self.circuit.h(self.alice_entangled)
         self.circuit.cx(self.alice_entangled, self.bob_entangled)
-        if self.use_barriers:
-            self.circuit.barrier()
+        # if self.use_barriers:
+        #     self.circuit.barrier()
 
         # Alice's operations on her qubits
         self.circuit.cx(self.message_qubit, self.alice_entangled)
@@ -69,8 +69,8 @@ class TeleportationProtocol:
         # Bell measurement and classical communication
         self.circuit.cx(self.alice_entangled, self.bob_entangled)
         self.circuit.cz(self.message_qubit, self.bob_entangled)
-        if self.use_barriers:
-            self.circuit.barrier()
+        # if self.use_barriers:
+        #     self.circuit.barrier()
 
     def draw(self):
         return self.circuit.draw(output='mpl')
@@ -137,14 +137,14 @@ class TeleportationValidator:
         self._create_payload(circuit)
         if self.save_statevector:
             circuit.save_statevector(label='after_payload')
-        if self.use_barriers:
+        if self.use_barriers and not self.save_statevector:
             circuit.barrier()
     
         circuit = circuit.compose(
             self.protocol.circuit, 
             qubits=range(self.payload_size, self.payload_size + 3)
         )
-        if self.use_barriers:
+        if self.use_barriers and not self.save_statevector:
             circuit.barrier()
         
         if self.save_statevector:
@@ -153,7 +153,7 @@ class TeleportationValidator:
         self._create_validation(circuit)
         if self.save_statevector:
             circuit.save_statevector(label='after_validation')
-        if self.use_barriers:
+        if self.use_barriers and not self.save_statevector:
             circuit.barrier()
     
         circuit.add_register(self.result)
