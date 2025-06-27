@@ -106,6 +106,9 @@
 \usepackage{physics}
 \usepackage{enumitem}
 
+\usepackage{graphicx}
+\usepackage{subcaption}
+
 % create "+" rule type for thick vertical lines
 \newcolumntype{+}{!{\vrule width 2pt}}
 
@@ -179,14 +182,16 @@
 % Title must be 250 characters or less.
 \begin{flushleft}
 {\Large
-\textbf\newline{Quantum Computers Benchmark Through Teleportation Protocol} % Please use "sentence case" for title and headings (capitalize only the first word in a title (or heading), the first word in a subtitle (or subheading), and any proper nouns).
+\textbf\newline{A Teleportation Protocol Variant for Single-QPU Benchmarking} % Please use "sentence case" for title and headings (capitalize only the first word in a title (or heading), the first word in a subtitle (or subheading), and any proper nouns).
+% A Variation of the Teleportation Protocol for Benchmarking Single Quantum Computers
+% Single-QPU Benchmarking: A Performance Analysis Using a Modified Teleportation Protocol
 }
 \newline
 % Insert author names, affiliations and corresponding author email (do not include titles, positions, or degrees).
 \\
-Cristian Marquez\textsuperscript{1},
+Cristian M\'arquez\textsuperscript{1},
 Daniel Sierra-Sosa\textsuperscript{2*},
-Kelly Garces\textsuperscript{1},
+Kelly Garc\'es\textsuperscript{1},
 
 \bigskip
 \textbf{1} Department of Systems and Computing Engineering, Universidad de los Andes, Bogotá, Colombia
@@ -224,9 +229,14 @@ Kelly Garces\textsuperscript{1},
 \end{flushleft}
 % Please keep the abstract below 300 words
 \section*{Abstract}
-% In anticipation of quantum computing entering the quantum utility era, it is imperative to provide developers with a set of metrics that will allow them to determine how much trust they can place in the execution of their programs. This study presents a novel algorithm inspired by the teleportation protocol to benchmark quantum hardware. The algorithm is divided into three parts: the payload, composed of entangled qubits with random gates applied to each wire; the bridge, which corresponds to the inspired-teleportation protocol; and the inverse operation of the payload, leading to an output equal to the initial state of the circuit. The study evaluated the algorithm's success, error distributions, and circuit complexity metrics by using both the AerSimulator and IBM quantum devices to run the code. The Cap-Score metric is introduced, combining success rates with circuit complexity to provide a comprehensive assessment of quantum hardware capabilities. The analysis reveals significant correlations between payload size, gate count, and the generated error through an evaluation of the success rates, providing developers with quantitative benchmarks to assess hardware reliability and scalability limitations for their quantum applications.
 
-With the advent of more quantum computing applications, it is imperative to provide developers with a set of metrics to determine how much trust they can place in the execution of their programs. This study proposes an algorithm based on the teleportation protocol for benchmarking quantum hardware and defining the fidelity of quantum gates. The algorithm is divided into three parts: the payload, composed of entangled qubits with random gates applied to each wire; the bridge, which corresponds to the teleportation-inspired protocol; and the inverse operation of the payload, leading to an output equal to the initial state of the circuit. We validated the algorithm by using both simulation (AerSimulator) and real quantum hardware (IBM quantum device), analyzing pre-runtime circuit metrics (qubit count, number of gates, circuit depth, etc.) alongside post-runtime results (execution time, success rate, error distribution). The analysis of success rates reveals significant correlations between payload size, gate count, and the generated error, providing developers with quantitative benchmarks to assess hardware reliability and scalability limitations for their quantum applications.
+With the advent of more quantum computing applications, it is imperative to provide developers with a set of metrics to determine how much trust they can place in the execution of their programs. In this study, we propose an algorithm based on the teleportation protocol to benchmark individual quantum hardware and define the fidelity of quantum gates. Our algorithm consists of three parts: the payload, composed of entangled qubits with random gates applied to each wire; the bridge, which corresponds to the teleportation-inspired protocol; and an inverse payload operation, designed to return the circuit to its initial state.
+
+We validated the algorithm using both simulation (AerSimulator) and a real quantum device (IBM Quantum). A key aspect of our methodology was to set the circuit transpilation to its lowest optimization level (level 0). We recognize that even without aggressive optimization, randomly generated gates can form self-canceling sequences. Therefore, our analysis correlates the pre-runtime metrics of the final, minimally-transpiled circuit (such as its actual depth and gate count) with post-runtime results (such as success rate and error distribution). This approach reveals significant correlations between payload size, circuit depth, and generated error, providing developers with quantitative benchmarks to evaluate hardware reliability and scalability limitations for their quantum applications.
+
+% With the advent of more quantum computing applications, it is imperative to provide developers with a set of metrics to determine how much trust they can place in the execution of their programs. This study proposes an algorithm based on the teleportation protocol to benchmark quantum hardware and define the fidelity of quantum gates. The algorithm is divided into three parts: the payload, composed of entangled qubits with random gates applied to each wire; the bridge, which corresponds to the teleportation-inspired protocol; and the inverse operation of the payload, leading to an output equal to the initial state of the circuit. We validated the algorithm by using both simulation (AerSimulator) and real quantum hardware (IBM quantum device), analyzing pre-runtime circuit metrics (qubit count, number of gates, circuit depth, etc.) alongside post-runtime results (execution time, success rate, error distribution). The analysis of success rates reveals significant correlations between payload size, circuit depth, and generated error, providing developers with quantitative benchmarks to evaluate hardware reliability and scalability limitations for their quantum applications.
+
+
 
 % Please keep the Author Summary between 150 and 200 words
 % Use first person. PLOS ONE authors please skip this step. 
@@ -240,7 +250,7 @@ With the advent of more quantum computing applications, it is imperative to prov
 \subfile{background}
 \subfile{algorithm}
 \subfile{experiment}
-\subfile{results}
+% \subfile{results}
 \subfile{conclusions}
 
 % \section*{Supporting information}
