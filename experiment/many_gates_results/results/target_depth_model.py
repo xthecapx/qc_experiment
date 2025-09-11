@@ -9,7 +9,7 @@ import pandas as pd
 import pickle
 import statsmodels.api as sm
 import matplotlib.pyplot as plt
-from results.target_depth_analysis import create_experiment_dataframe
+from experiment.circuit_depth_analysis.target_depth_analysis import create_experiment_dataframe
 
 # Output directory for saved model and plots
 OUTPUT_DIR = "circuit_depth_analysis"

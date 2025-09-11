@@ -12,6 +12,17 @@ import matplotlib.pyplot as plt
 from dotenv import load_dotenv
 # from results import results_1_4_2000_2005
 from qiskit.providers.fake_provider import GenericBackendV2
+from enum import Enum
+from qbraid.transpiler import transpile as qbraid_transpile
+from qbraid.runtime import QbraidProvider
+
+class QbraidDevice(Enum):
+    IONQ = "aws_ionq"
+    QIR = "qbraid_qir_simulator"
+    LUCY = "aws_oqc_lucy"
+    RIGETTI = "aws_rigetti_aspen_m_1"
+    IBM_SANTIAGO = "ibm_q_santiago"
+    IBM_SIMULATOR = "ibm_simulator"
 
 # Load environment variables
 load_dotenv()
@@ -157,7 +168,8 @@ class TeleportationValidator:
             circuit.barrier()
     
         circuit.add_register(self.result)
-        circuit.measure(self.auxiliary_qubits, self.result)
+        # circuit.measure(self.auxiliary_qubits, self.result)
+        circuit.measure_all()
     
         return circuit
 
@@ -366,6 +378,21 @@ class TeleportationValidator:
                 "status": "error",
                 "error": str(e)
             }
+        
+    def run_qbraid(self):
+        provider = QbraidProvider()
+        qbraid_device = provider.get_device(QbraidDevice.RIGETTI)
+        
+        try:
+            transpiled_circuit = qbraid_transpile(qc, qbraid_device)
+            job = qbraid_device.run(transpiled_circuit, shots=1024)
+            result = job.result()
+            counts = result.data.get_counts()
+            return counts, qc
+        except Exception as e:
+            print(f"Error running on qBraid: {str(e)}")
+            counts = AerSimulator().run(qc).result().get_counts()
+            return counts, qc
         
     def get_ibm_job_results(self, job_id):
         # Get job results from the service

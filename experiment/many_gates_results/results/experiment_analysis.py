@@ -10,13 +10,14 @@ from statsmodels.stats.diagnostic import het_breuschpagan, het_white
 from statsmodels.stats.stattools import jarque_bera
 from statsmodels.graphics.gofplots import ProbPlot
 
-# ColorBrewer colorblind-friendly palette
+# Custom color palette
 COLORBREWER_PALETTE = {
-    1: '#d7191c',    # Red
-    2: '#fdae61',    # Orange
-    3: '#ffffbf',    # Yellow
-    4: '#abdda4',    # Light Green
-    5: '#2b83ba'     # Blue
+    1: '#1b9e77',    # Teal
+    2: '#d95f02',    # Orange
+    3: '#7570b3',    # Purple
+    4: '#e7298a',    # Pink
+    5: '#66a61e',    # Green
+    6: '#e6ab02'     # Yellow
 }
 
 # Distinct marker styles with different shapes and fills
@@ -134,28 +135,136 @@ def create_experiment_dataframe(csv_file_paths=None):
         return pd.DataFrame()  # Return empty DataFrame if no files were processed
 
 def calculate_regression_stats(x, y):
-    """Calculate regression statistics using statsmodels."""
-    X = sm.add_constant(x)  # Add constant term
-    model = sm.OLS(y, X).fit()
-    return model
+    """
+    Calculate regression statistics using statsmodels with error handling.
+    
+    Returns:
+        model: Fitted OLS model, or None if regression fails
+    """
+    try:
+        # Check if we have enough data points
+        if len(x) < 3:
+            print(f"Warning: Not enough data points for reliable regression (n={len(x)}, minimum=3)")
+            return None
+            
+        # Check for NaN values
+        if np.any(np.isnan(x)) or np.any(np.isnan(y)):
+            print(f"Warning: NaN values found in data")
+            return None
+            
+        # Check if there's variation in x
+        if np.var(x) == 0:
+            print(f"Warning: No variation in x values for regression")
+            return None
+            
+        # Check if there's variation in y
+        if np.var(y) == 0:
+            print(f"Warning: No variation in y values for regression")
+            return None
+            
+        # Check if x has reasonable range (for meaningful regression)
+        x_range = np.max(x) - np.min(x)
+        if x_range < np.min(x) * 0.1:  # Range should be at least 10% of minimum value
+            print(f"Warning: Insufficient range in x values for reliable regression (range={x_range}, min_x={np.min(x)})")
+            return None
+            
+        X = sm.add_constant(x)  # Add constant term
+        model = sm.OLS(y, X).fit()
+        
+        # Check if the model fit was successful
+        if np.isnan(model.rsquared):
+            print(f"Warning: Regression resulted in NaN R-squared")
+            return None
+            
+        return model
+        
+    except Exception as e:
+        print(f"Warning: Regression failed with error: {str(e)}")
+        return None
 
-def plot_success_rates(df, use_log_x=False, use_log_y=False):
-    # Create figure
-    fig = plt.figure(figsize=(10, 8))
+def plot_success_rates(df, use_log_x=False, use_log_y=False, ieee_format=True, show_title=False):
+    """
+    Plot success rates vs number of gates for different payload sizes.
+    
+    Parameters:
+    -----------
+    df : pandas.DataFrame
+        DataFrame containing experiment results
+    use_log_x : bool
+        Whether to use logarithmic scale for x-axis
+    use_log_y : bool
+        Whether to use logarithmic scale for y-axis
+    ieee_format : bool
+        Whether to use larger fonts suitable for IEEE two-column format (default: True)
+    show_title : bool
+        Whether to show the plot title (default: False for IEEE format)
+    
+    Returns:
+    --------
+    list : Regression statistics for each payload size
+    """
+    # Set font sizes based on format
+    if ieee_format:
+        title_size = 18
+        label_size = 16
+        tick_size = 14
+        legend_size = 12
+        marker_size = 80  # Reduced marker size
+        line_width = 2
+        fig_size = (8, 7)  # Slightly taller to accommodate legend below
+    else:
+        title_size = 14
+        label_size = 12
+        tick_size = 10
+        legend_size = 10
+        marker_size = 60  # Reduced marker size
+        line_width = 1
+        fig_size = (10, 8)
+    
+    # Create figure with appropriate size
+    fig = plt.figure(figsize=fig_size)
     ax = plt.gca()
     
     # Store regression results for printing
     regression_stats = []
     
-    # Plot for each payload size
-    for payload_size in sorted(df['payload_size'].unique()):
+    # Plot for each payload size (skip payload size 5 due to insufficient data)
+    payload_sizes_to_plot = [ps for ps in sorted(df['payload_size'].unique()) if ps != 5]
+    
+    # Print information about skipped payload sizes
+    all_payload_sizes = sorted(df['payload_size'].unique())
+    skipped_sizes = [ps for ps in all_payload_sizes if ps not in payload_sizes_to_plot]
+    if skipped_sizes:
+        print(f"\nSkipping payload size(s) {skipped_sizes} due to insufficient data for reliable analysis")
+        for ps in skipped_sizes:
+            ps_data = df[df['payload_size'] == ps]
+            print(f"  Payload Size {ps}: {len(ps_data)} data points, gate range: {ps_data['num_gates'].min()}-{ps_data['num_gates'].max()}")
+    
+    for payload_size in payload_sizes_to_plot:
         payload_data = df[df['payload_size'] == payload_size]
         
         # Group by num_gates and calculate mean success rate
         grouped_data = payload_data.groupby('num_gates')['success_rate'].mean()
         
-        x = np.array(grouped_data.index)
-        y = np.array(grouped_data.values * 100)
+        # Remove any NaN values before regression
+        grouped_data_clean = grouped_data.dropna()
+        
+        x = np.array(grouped_data_clean.index)
+        y = np.array(grouped_data_clean.values * 100)
+        
+        # Debug information for problematic payload sizes
+        if payload_size in [3, 5]:
+            print(f"\nDebug info for Payload Size {payload_size}:")
+            print(f"  Number of raw data points: {len(payload_data)}")
+            print(f"  Unique gate counts: {sorted(payload_data['num_gates'].unique())}")
+            print(f"  Grouped data points (before cleaning): {len(grouped_data)}")
+            print(f"  Grouped data points (after cleaning): {len(grouped_data_clean)}")
+            print(f"  NaN values removed: {len(grouped_data) - len(grouped_data_clean)}")
+            print(f"  X values (gates): {x}")
+            print(f"  Y values (success rates): {y}")
+            print(f"  X range: {np.max(x) - np.min(x) if len(x) > 0 else 'N/A'}")
+            print(f"  X variance: {np.var(x) if len(x) > 0 else 'N/A'}")
+            print(f"  Y variance: {np.var(y) if len(y) > 0 else 'N/A'}")
         
         if use_log_x:
             x = np.log10(x)
@@ -166,32 +275,46 @@ def plot_success_rates(df, use_log_x=False, use_log_y=False):
         ax.scatter(x, y, 
                   color=COLORBREWER_PALETTE[payload_size],
                   marker=MARKER_STYLES[payload_size],
-                  s=100,
+                  s=marker_size,
                   label=f'Payload Size {payload_size}')
         
         # Regression analysis
         model = calculate_regression_stats(x, y)
         
-        # Generate points for regression line
-        x_pred = np.linspace(x.min(), x.max(), 100)
-        X_pred = sm.add_constant(x_pred)
-        y_pred = model.predict(X_pred)
+        # Only plot regression line and store stats if model is valid
+        if model is not None:
+            # Generate points for regression line
+            x_pred = np.linspace(x.min(), x.max(), 100)
+            X_pred = sm.add_constant(x_pred)
+            y_pred = model.predict(X_pred)
+            
+            # Plot regression line with matching color
+            ax.plot(x_pred, y_pred,
+                    color=COLORBREWER_PALETTE[payload_size],
+                    linestyle='--', alpha=0.7, linewidth=line_width,
+                    label=f'Trend P{payload_size} (R²={model.rsquared:.3f})')
+            
+            # Store regression statistics
+            stats = {
+                'payload_size': payload_size,
+                'slope': model.params[1],
+                'intercept': model.params[0],
+                'r_squared': model.rsquared,
+                'p_value': model.pvalues[1],
+                'std_err': model.bse[1]
+            }
+        else:
+            # Store NaN statistics for failed regression
+            print(f"Skipping regression line for Payload Size {payload_size} due to insufficient or invalid data")
+            stats = {
+                'payload_size': payload_size,
+                'slope': np.nan,
+                'intercept': np.nan,
+                'r_squared': np.nan,
+                'p_value': np.nan,
+                'std_err': np.nan
+            }
         
-        # Plot regression line with matching color
-        ax.plot(x_pred, y_pred,
-                color=COLORBREWER_PALETTE[payload_size],
-                linestyle='--', alpha=0.5,
-                label=f'Trend P{payload_size} (R²={model.rsquared:.3f})')
-        
-        # Store regression statistics
-        stats = {
-            'payload_size': payload_size,
-            'slope': model.params[1],
-            'intercept': model.params[0],
-            'r_squared': model.rsquared,
-            'p_value': model.pvalues[1],
-            'std_err': model.bse[1]
-        }
         regression_stats.append(stats)
     
     # Filter to include only ranges that have data in the DataFrame
@@ -204,34 +327,38 @@ def plot_success_rates(df, use_log_x=False, use_log_y=False):
     if use_log_x:
         tick_positions = [np.log10(r[0]) for r in gate_ranges]
         tick_labels = [f"{r[0]}-{r[1]}" for r in gate_ranges]
-        plt.xlabel('Number of Gates (Range) - Log Scale', fontsize=12)
+        plt.xlabel('Number of Gates (Range) - Log Scale', fontsize=label_size, fontweight='bold')
     else:
         tick_positions = [r[0] for r in gate_ranges]
         tick_labels = [f"{r[0]}-{r[1]}" for r in gate_ranges]
-        plt.xlabel('Number of Gates (Range)', fontsize=12)
+        plt.xlabel('Number of Gates (Range)', fontsize=label_size, fontweight='bold')
     
-    plt.xticks(tick_positions, tick_labels, rotation=45)
+    plt.xticks(tick_positions, tick_labels, rotation=45, fontsize=tick_size)
     
     # Set y-axis label
     if use_log_y:
-        plt.ylabel('Success Rate (%) - Log Scale', fontsize=12)
+        plt.ylabel('Success Rate (%) - Log Scale', fontsize=label_size, fontweight='bold')
     else:
-        plt.ylabel('Success Rate (%)', fontsize=12)
+        plt.ylabel('Success Rate (%)', fontsize=label_size, fontweight='bold')
     
-    # Set title with appropriate scale indication
-    scale_text = ""
-    if use_log_x and use_log_y:
-        scale_text = " (Log-Log Scale)"
-    elif use_log_x:
-        scale_text = " (Log X Scale)"
-    elif use_log_y:
-        scale_text = " (Log Y Scale)"
+    # Set y-axis tick labels
+    plt.yticks(fontsize=tick_size)
     
-    plt.title('Success Rates by Number of Gates and Payload Size' + scale_text, fontsize=14)
+    # Set title with appropriate scale indication (only if show_title is True)
+    if show_title:
+        scale_text = ""
+        if use_log_x and use_log_y:
+            scale_text = " (Log-Log Scale)"
+        elif use_log_x:
+            scale_text = " (Log X Scale)"
+        elif use_log_y:
+            scale_text = " (Log Y Scale)"
+        
+        plt.title('Success Rates by Number of Gates and Payload Size' + scale_text, fontsize=title_size, fontweight='bold', pad=20)
+    
     plt.grid(True, linestyle='--', alpha=0.7)
-    plt.legend(fontsize=10, loc='best')
     
-    # Adjust layout
+    # Adjust layout without legend
     plt.tight_layout()
     
     # Save figure

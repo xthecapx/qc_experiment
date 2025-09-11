@@ -17,18 +17,18 @@ from statsmodels.stats.outliers_influence import variance_inflation_factor
 OUTPUT_DIR = "report/img"
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-# Define colorblind-friendly palettes
+# Custom color palette (matching experiment_analysis.py)
 COLORBREWER_PALETTE = {
-    1: '#1f77b4',  # Blue
-    2: '#ff7f0e',  # Orange
-    3: '#2ca02c',  # Green
-    4: '#d62728',  # Red
-    5: '#9467bd',  # Purple
-    6: '#8c564b',  # Brown
-    7: '#e377c2',  # Pink
-    8: '#7f7f7f',  # Gray
-    9: '#bcbd22',  # Olive
-    10: '#17becf'  # Cyan
+    1: '#1b9e77',    # Teal
+    2: '#d95f02',    # Orange
+    3: '#7570b3',    # Purple
+    4: '#e7298a',    # Pink
+    5: '#66a61e',    # Green
+    6: '#e6ab02',    # Yellow
+    7: '#e377c2',    # Pink
+    8: '#7f7f7f',    # Gray
+    9: '#bcbd22',    # Olive
+    10: '#17becf'    # Cyan
 }
 
 # Define marker styles for different payload sizes
@@ -146,61 +146,7 @@ def plot_success_rate_vs_payload_size(df):
 
     return regression_stat # MODIFIED: return single stat
 
-def plot_error_distribution_by_payload_size_overall(df):
-    """
-    Create a plot showing error distribution based on payload size
-    """
-    # Create figure
-    fig, ax = plt.subplots(figsize=(12, 8))
-    
-    # Calculate error rate (1 - success_rate)
-    df['error_rate'] = 1 - df['success_rate']
-    
-    # Group by payload_size and calculate statistics
-    payload_groups = df.groupby('payload_size')
-    
-    payload_sizes_list = []
-    error_means = []
-    error_stds = []
-    
-    for size, group in payload_groups:
-        payload_sizes_list.append(size)
-        error_means.append(group['error_rate'].mean())
-        error_stds.append(group['error_rate'].std())
-    
-    # Convert to numpy arrays
-    payload_sizes_arr = np.array(payload_sizes_list)
-    error_means = np.array(error_means)
-    error_stds = np.array(error_stds)
-    
-    # Create bar plot with error bars
-    ax.bar(payload_sizes_arr, error_means, yerr=error_stds,
-           color='skyblue', edgecolor='black', alpha=0.7,
-           capsize=5, width=0.7)
-    
-    # Add a trend line
-    model = calculate_regression_stats(payload_sizes_arr, error_means)
-    x_pred = np.linspace(payload_sizes_arr.min(), payload_sizes_arr.max(), 100)
-    X_pred = sm.add_constant(x_pred)
-    y_pred = model.predict(X_pred)
-    
-    ax.plot(x_pred, y_pred, 'r--', 
-            label=f'Trend (R²={model.rsquared:.3f})')
-    
-    # Set axis labels and title
-    ax.set_xlabel('Payload Size', fontsize=12)
-    ax.set_ylabel('Error Rate', fontsize=12)
-    ax.set_title('Error Distribution by Payload Size', fontsize=14)
-    
-    # Add grid and legend
-    ax.grid(True, linestyle='--', alpha=0.5, axis='y')
-    ax.legend()
-    
-    # Adjust layout
-    plt.tight_layout()
-    
-    # Save figure
-    plt.savefig(os.path.join(OUTPUT_DIR, 'error_distribution_by_payload_size_overall.png'), dpi=300, bbox_inches='tight')
+
 
 def plot_success_rate_heatmap(df):
     """
@@ -247,6 +193,210 @@ def plot_success_rate_heatmap(df):
     
     # Save figure
     plt.savefig(os.path.join(OUTPUT_DIR, 'success_rate_heatmap_by_payload_size.png'), dpi=300, bbox_inches='tight') # MODIFIED filename
+
+def plot_error_rate_vs_payload_size_colored_by_depth(df, ieee_format=True):
+    """
+    Create a scatter plot showing error rate vs payload size with circuit depth as color
+    """
+    # Set font sizes based on format (matching experiment_analysis.py)
+    if ieee_format:
+        title_size = 18
+        label_size = 16
+        tick_size = 14
+        legend_size = 12
+        fig_size = (8, 6)
+        marker_size = 80
+        line_width = 2
+    else:
+        title_size = 14
+        label_size = 12
+        tick_size = 10
+        legend_size = 10
+        fig_size = (10, 8)
+        marker_size = 60
+        line_width = 1
+    
+    # Create figure
+    fig, ax = plt.subplots(figsize=fig_size)
+    
+    # Calculate error rate (1 - success_rate)
+    df['error_rate'] = 1 - df['success_rate']
+    
+    # Create scatter plot of error rate vs payload size with circuit depth as color
+    scatter = ax.scatter(df['payload_size'], df['error_rate'],
+                        c=df['circuit_depth'], cmap='viridis',
+                        alpha=0.7, s=marker_size, edgecolor='black', linewidth=0.5)
+    
+    # Add colorbar
+    cbar = plt.colorbar(scatter, ax=ax)
+    cbar.set_label('Circuit Depth', fontsize=label_size, fontweight='bold')
+    cbar.ax.tick_params(labelsize=tick_size)
+    
+    # Add regression line
+    x = df['payload_size']
+    y = df['error_rate']
+    model = calculate_regression_stats(x, y)
+    
+    # Generate points for regression line
+    x_pred = np.linspace(x.min(), x.max(), 100)
+    X_pred = sm.add_constant(x_pred)
+    y_pred = model.predict(X_pred)
+    
+    # Plot regression line with updated styling
+    ax.plot(x_pred, y_pred, color=COLORBREWER_PALETTE[2], linestyle='--', linewidth=line_width,
+            label=f'Trend (R²={model.rsquared:.3f})')
+    
+    # Set axis labels with updated font sizes (no title for IEEE format)
+    ax.set_xlabel('Payload Size', fontsize=label_size, fontweight='bold')
+    ax.set_ylabel('Error Rate', fontsize=label_size, fontweight='bold')
+    
+    # Set tick label font sizes
+    ax.tick_params(axis='both', which='major', labelsize=tick_size)
+    
+    # Add grid and legend
+    ax.grid(True, linestyle='--', alpha=0.7)
+    ax.legend(fontsize=legend_size)
+    
+    # Adjust layout
+    plt.tight_layout()
+    
+    # Save figure
+    plt.savefig(os.path.join(OUTPUT_DIR, 'error_rate_vs_payload_size_colored_by_depth.png'), dpi=300, bbox_inches='tight')
+
+def plot_error_rate_distribution_by_payload_size(df, ieee_format=True):
+    """
+    Create a boxplot showing error rate distribution by payload size
+    """
+    # Set font sizes based on format (matching experiment_analysis.py)
+    if ieee_format:
+        title_size = 18
+        label_size = 16
+        tick_size = 14
+        legend_size = 12
+        fig_size = (8, 6)
+    else:
+        title_size = 14
+        label_size = 12
+        tick_size = 10
+        legend_size = 10
+        fig_size = (10, 8)
+    
+    # Create figure
+    fig, ax = plt.subplots(figsize=fig_size)
+    
+    # Calculate error rate (1 - success_rate)
+    df['error_rate'] = 1 - df['success_rate']
+    
+    # Get payload sizes
+    payload_sizes = sorted(df['payload_size'].unique())
+    
+    # Create boxplot with ColorBrewer colors
+    boxprops = {'alpha': 0.8, 'linewidth': 1.5}
+    whiskerprops = {'linewidth': 1.5}
+    medianprops = {'color': 'black', 'linewidth': 2}
+    
+    # Create a list of colors for the boxes
+    box_colors = [COLORBREWER_PALETTE.get(size, COLORBREWER_PALETTE[1]) for size in payload_sizes]
+    
+    # Create the boxplot
+    bp = ax.boxplot([df[df['payload_size'] == size]['error_rate'] for size in payload_sizes],
+                     patch_artist=True,
+                     boxprops=boxprops,
+                     whiskerprops=whiskerprops,
+                     medianprops=medianprops)
+    
+    # Color the boxes
+    for box, color in zip(bp['boxes'], box_colors):
+        box.set_facecolor(color)
+    
+    # Set axis labels with updated font sizes (no title for IEEE format)
+    ax.set_xlabel('Payload Size', fontsize=label_size, fontweight='bold')
+    ax.set_ylabel('Error Rate', fontsize=label_size, fontweight='bold')
+    
+    # Set tick label font sizes
+    ax.set_xticklabels(payload_sizes, fontsize=tick_size)
+    ax.tick_params(axis='y', which='major', labelsize=tick_size)
+    
+    # Add grid
+    ax.grid(axis='y', linestyle='--', alpha=0.7)
+    
+    # Adjust layout
+    plt.tight_layout()
+    
+    # Save figure
+    plt.savefig(os.path.join(OUTPUT_DIR, 'error_rate_distribution_by_payload_size.png'), dpi=300, bbox_inches='tight')
+
+def plot_error_distribution_by_payload_size_overall(df, ieee_format=True):
+    """
+    Create a bar plot showing error distribution based on payload size
+    """
+    # Set font sizes based on format (matching experiment_analysis.py)
+    if ieee_format:
+        title_size = 18
+        label_size = 16
+        tick_size = 14
+        legend_size = 12
+        fig_size = (8, 6)
+    else:
+        title_size = 14
+        label_size = 12
+        tick_size = 10
+        legend_size = 10
+        fig_size = (10, 8)
+    
+    # Create figure
+    fig, ax = plt.subplots(figsize=fig_size)
+    
+    # Calculate error rate (1 - success_rate)
+    df['error_rate'] = 1 - df['success_rate']
+    
+    # Group by payload_size and calculate statistics
+    payload_groups = df.groupby('payload_size')
+    
+    payload_sizes_list = []
+    error_means = []
+    error_stds = []
+    
+    for size, group in payload_groups:
+        payload_sizes_list.append(size)
+        error_means.append(group['error_rate'].mean())
+        error_stds.append(group['error_rate'].std())
+    
+    # Convert to numpy arrays
+    payload_sizes_arr = np.array(payload_sizes_list)
+    error_means = np.array(error_means)
+    error_stds = np.array(error_stds)
+    
+    # Create bar plot with error bars using updated colors
+    ax.bar(payload_sizes_arr, error_means, yerr=error_stds,
+           color=COLORBREWER_PALETTE[1], edgecolor='black', alpha=0.7,
+           capsize=5, width=0.7)
+    
+    # Add a trend line
+    model = calculate_regression_stats(payload_sizes_arr, error_means)
+    x_pred = np.linspace(payload_sizes_arr.min(), payload_sizes_arr.max(), 100)
+    X_pred = sm.add_constant(x_pred)
+    y_pred = model.predict(X_pred)
+    
+    ax.plot(x_pred, y_pred, color=COLORBREWER_PALETTE[2], linestyle='--', linewidth=2,
+            label=f'Trend (R²={model.rsquared:.3f})')
+    
+    # Set axis labels with updated font sizes (no title for IEEE format)
+    ax.set_xlabel('Payload Size', fontsize=label_size, fontweight='bold')
+    ax.set_ylabel('Error Rate', fontsize=label_size, fontweight='bold')
+    
+    # Set tick label font sizes
+    ax.tick_params(axis='both', which='major', labelsize=tick_size)
+    
+    # Add grid and legend
+    ax.grid(True, linestyle='--', alpha=0.7, axis='y')
+    ax.legend(fontsize=legend_size)
+    
+    # Adjust layout
+    plt.tight_layout()
+    
+    # Save figure
+    plt.savefig(os.path.join(OUTPUT_DIR, 'error_distribution_by_payload_size_overall.png'), dpi=300, bbox_inches='tight')
 
 def plot_error_distribution_by_payload_size(df):
     """
@@ -859,6 +1009,23 @@ def run_analysis(csv_file_path):
     # analyze_regression_models already prints its own summary and saves equations/correlation matrix.
 
     print("\nFull analysis complete. All plots and regression model details have been saved.")
+    
+    return df, model_results
+
+def load_dataframe(csv_file_path):
+    """
+    Simple function to load and return the dataframe without running analysis.
+    
+    Parameters:
+    -----------
+    csv_file_path : str
+        Path to the CSV file containing experiment results
+    
+    Returns:
+    --------
+    pd.DataFrame : Processed dataframe ready for plotting
+    """
+    return create_experiment_dataframe(csv_file_path)
 
 def plot_execution_time_vs_payload_size(df):
     """

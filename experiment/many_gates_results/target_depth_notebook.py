@@ -17,7 +17,7 @@ os.makedirs(OUTPUT_DIR, exist_ok=True)
 sys.path.append('results')
 
 # Import the analysis functions
-from results.target_depth_analysis import (
+from experiment.circuit_depth_analysis.target_depth_analysis import (
     create_experiment_dataframe,
     plot_success_rate_vs_circuit_depth,
     plot_error_distribution_by_circuit_depth,
