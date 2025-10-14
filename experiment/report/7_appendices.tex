@@ -1,0 +1,130 @@
+\section{Mathematical description of TP}
+\label{math:tp}
+
+The teleportation protocol proceeds through a series of well-defined quantum operations. The process begins with a formal definition of the quantum state pertaining to Alice's message qubit as:
+
+\begin{equation}
+\ket{\psi}_M = \alpha\ket{0} + \beta\ket{1}
+\label{eq:teleportation_initial_state}
+\end{equation}
+
+Initially, Alice's qubit (A) and Bob's qubit (B) are prepared in the $\ket{0}$ state. To create the necessary entanglement between Alice and Bob, a Hadamard gate is applied to Alice's qubit followed by a CNOT gate with Alice's qubit as control and Bob's as target:
+
+\begin{equation}
+\begin{split}
+&\text{CNOT}_{AB} H_A \ket{0}_B\ket{0}_A \\ 
+&=\text{CNOT}_{AB} \ket{0}_B \frac{1}{\sqrt{2}}(\ket{0}_A + \ket{1}_A) \\
+&= \text{CNOT}_{AB} \frac{1}{\sqrt{2}}(\ket{00}_{AB} + \ket{01}_{AB}) \\
+&= \frac{1}{\sqrt{2}}(\ket{00}_{AB} + \ket{11}_{AB}) = \ket{\Phi^+}_{AB}
+\end{split}
+\end{equation}
+
+At this point, the message qubit M is independent of the entangled pair, so the combined three-qubit state can be written as:
+
+\begin{equation}
+\begin{split}
+& \ket{\psi}_M \otimes \ket{\Phi^+}_{AB} = \\ 
+& \frac{1}{\sqrt{2}}(\alpha\ket{0}_M + \beta\ket{1}_M)(\ket{00}_{AB} + \ket{11}_{AB})
+\label{eq:ab_initial_state}
+\end{split}
+\end{equation}
+
+Equation \ref{eq:ab_initial_state} denotes the initial state of the three qubits before Alice performs a measurement. Notice that the M qubit remains independent of the entangled pair AB, as they have not yet interacted. This is the starting point for the Alice teleportation operation.
+
+Expanding equation \ref{eq:ab_initial_state} on the computational basis with qubits ordered as M, A, B:
+
+\begin{equation}
+\begin{split}
+& \ket{\psi_{MAB}} = \\
+& \frac{1}{\sqrt{2}}(\alpha\ket{000} + \alpha\ket{011} + \beta\ket{100} + \beta\ket{111})
+\end{split}
+\end{equation}
+
+Alice now performs the measurement operation by applying a CNOT gate with M as control and A as target, followed by a Hadamard gate on M. The CNOT operation yields the following.
+
+\begin{equation}
+\begin{split}
+&\text{CNOT}_{MA}\ket{\psi_{MAB}} = \\ 
+&\frac{1}{\sqrt{2}}(\alpha\ket{000} + \alpha\ket{011} + \beta\ket{110} + \beta\ket{101})
+\end{split}
+\end{equation}
+
+Applying the Hadamard gate to qubit M:
+
+\begin{equation}
+\begin{split}
+&H_M(\text{CNOT}_{MA}\ket{\psi_{MAB}}) = \\ 
+& \frac{1}{2}[\alpha(\ket{0}+\ket{1})\ket{00} + \alpha(\ket{0}+\ket{1})\ket{11} \\ 
+& + \beta(\ket{0}-\ket{1})\ket{10} + \beta(\ket{0}-\ket{1})\ket{01}]
+\end{split}
+\end{equation}
+
+Expanding and regrouping terms according to the measurement outcomes of qubits M and A:
+
+\begin{equation}
+\begin{split}
+& \ket{\psi_{MAB}} = \\ 
+& \frac{1}{2} [\ket{00}_{MA}(\alpha\ket{0}_B + \beta\ket{1}_B) 
+\\ & + \ket{01}_{MA}(\alpha\ket{1}_B + \beta\ket{0}_B) 
+\\ & + \ket{10}_{MA}(\alpha\ket{0}_B - \beta\ket{1}_B) 
+\\ & + \ket{11}_{MA}(\alpha\ket{1}_B - \beta\ket{0}_B)]
+\end{split}
+\label{eq:teleportation_grouped_state}
+\end{equation}
+
+This expression reveals that when Alice measures qubits M and A, she obtains one of four equally probable outcomes (each with probability $\frac{1}{4}$), and each measurement outcome projects Bob's qubit into a corresponding state. The relationship between Alice's measurement results and Bob's resulting states is summarized in Table~\ref{tab:teleportation_state_propagation}.
+
+\renewcommand{\arraystretch}{1.3}
+\setlength{\tabcolsep}{8pt}
+\begin{table*}[t]
+    \centering
+    \begin{tabular}{|c|c|c|c|c|}
+    \hline
+    \textbf{\shortstack{Initial State \\ (\(\ket{\psi}\))}} & \textbf{\shortstack{Alice's \\ Measurement}} & \textbf{\shortstack{Bob's State \\ (Before \\ Correction)}} & \textbf{\shortstack{Operation \\ by Bob}} & \textbf{\shortstack{Bob's Final \\ State}} \\ \hline
+    \(\alpha\ket{0} + \beta\ket{1}\) & \(\ket{00}_{MA}\) & \(\alpha\ket{0} + \beta\ket{1}\) & None (I) & \(\alpha\ket{0} + \beta\ket{1}\) \\ \hline
+    \(\alpha\ket{0} + \beta\ket{1}\) & \(\ket{01}_{MA}\) & \(\alpha\ket{1} + \beta\ket{0}\) & X & \(\alpha\ket{0} + \beta\ket{1}\) \\ \hline
+    \(\alpha\ket{0} + \beta\ket{1}\) & \(\ket{10}_{MA}\) & \(\alpha\ket{0} - \beta\ket{1}\) & Z & \(\alpha\ket{0} + \beta\ket{1}\) \\ \hline
+    \(\alpha\ket{0} + \beta\ket{1}\) & \(\ket{11}_{MA}\) & \(\alpha\ket{1} - \beta\ket{0}\) & XZ & \(\alpha\ket{0} + \beta\ket{1}\) \\ \hline
+    \end{tabular}
+    \caption{Bob's corrective Pauli operations based on Alice's measurement outcome (communicated classically) to recover the initial quantum message \(\ket{\psi}\).}
+    \label{tab:teleportation_state_propagation}
+\end{table*}
+
+It is worth noting that Equation~\ref{eq:teleportation_grouped_state} can be equivalently represented within the Bell basis as:
+
+\begin{equation}
+\begin{split}
+& \ket{\psi_{MAB}} = \\ 
+& \frac{1}{2}[\ket{\Phi^+}_{MA}(\alpha\ket{0} + \beta\ket{1})_B \\ 
+&+ \ket{\Phi^-}_{MA}(\alpha\ket{0} - \beta\ket{1})_B \\ 
+&+ \ket{\Psi^+}_{MA}(\alpha\ket{1} + \beta\ket{0})_B \\ 
+&+ \ket{\Psi^-}_{MA}(\alpha\ket{1} - \beta\ket{0})_B]
+\end{split}
+\label{eq:teleportation_bell_basis}
+\end{equation}
+
+where the Bell states are defined as:
+
+\begin{equation}
+\begin{aligned}
+\ket{\Phi^+}_{MA} &= \frac{1}{\sqrt{2}}(\ket{00} + \ket{11})_{MA} \\
+\ket{\Phi^-}_{MA} &= \frac{1}{\sqrt{2}}(\ket{00} - \ket{11})_{MA} \\
+\ket{\Psi^+}_{MA} &= \frac{1}{\sqrt{2}}(\ket{01} + \ket{10})_{MA} \\
+\ket{\Psi^-}_{MA} &= \frac{1}{\sqrt{2}}(\ket{01} - \ket{10})_{MA}
+\end{aligned}
+\label{eq:bell_states}
+\end{equation}
+
+It is possible to calculate the inverse transformation from computational basis to Bell basis and update the equation \ref{eq:teleportation_grouped_state}.
+
+\begin{equation}
+\begin{aligned}
+\ket{00}_{MA} &= \frac{1}{\sqrt{2}}(\ket{\Phi^+} + \ket{\Phi^-})_{MA} \\
+\ket{11}_{MA} &= \frac{1}{\sqrt{2}}(\ket{\Phi^+} - \ket{\Phi^-})_{MA} \\
+\ket{01}_{MA} &= \frac{1}{\sqrt{2}}(\ket{\Psi^+} + \ket{\Psi^-})_{MA} \\
+\ket{10}_{MA} &= \frac{1}{\sqrt{2}}(\ket{\Psi^+} - \ket{\Psi^-})_{MA}
+\end{aligned}
+\label{eq:computational_to_bell}
+\end{equation}
+
+Equation \ref{eq:teleportation_bell_basis} is the Bell base representation, which highlights the essential framework of the TP.

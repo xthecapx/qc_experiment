@@ -1,0 +1,284 @@
+\section{Experiment}
+\label{sec:experiment}
+
+This section outlines the experimental strategy used to address the research question RQ1 presented in section~\ref{sec:introduction}, following the methodology detailed in section~\ref{benchmarking_design}. Our approach proceeds in two global phases. We first establish the baseline for the vTP algorithm by detailing its mathematical formulation and comparing the resulting quantum state with the results derived from running the circuit on a noiseless Qiskit Aer simulator. With the foundation confirmed, we proceed to the main experiment, which is structured in three progressive stages executed on real quantum hardware. These stages are designed to analyze how different pre-runtime metrics, first the number of single-qubit gates, then circuit depth, and finally the payload size, correlate with post-runtime reliability.
+
+An important aspect for this entire experimental strategy is the restriction of all randomized operations to gates within the Clifford group. The rationale for this restriction is based on the well-established and classifiable mathematical structure of the group \cite{grierClassificationCliffordGates_2022}. A primary advantage is their inherent efficient simulation on classical hardware; unlike universal quantum circuits, Clifford-based circuits can be simulated on classical computers in polynomial time, which allows for direct corroboration of experimental outputs against a noiseless, theoretical framework. In addition, these gates are integral to quantum error correction, underscoring the importance of their characterization in the advancement of fault-tolerant systems. Because of this, the use of gates within the Clifford group provides a controlled and manageable environment for the development of robust benchmarking methodologies.
+
+\subsection{Experimental Hypotheses}
+Based on our preliminary review of quantum runtime services, we formulate the following hypotheses to be tested in the subsequent experimental stages:
+
+\begin{itemize}
+\item \label{h1} \textbf{H1:} The number of single qubit gates will have a minimal impact on the final success rate.
+\item \label{h2} \textbf{H2:} There exists a positive correlation between the depth of the circuit and the error rate.
+\item \label{h3} \textbf{H3:} The payload size emerges as a significant factor correlated with the error rate.
+\end{itemize}
+
+\subsection{Stage 1: Preparation}
+
+As a first step, the Qiskit Aer simulator was used to evaluate the congruence between the theoretical predictions of the vTP and the simulation findings. The quantum circuit utilized is shown in Figure~\ref{fig:vtp_circuit}. For detailed information on the circuit, see \ref{sec:vtp}.
+
+The experimental setup was designed to execute jobs consisting of 1024 shots each. Upon aggregation of the results, a 100\% success rate was observed, which was expected since the simulator did not instantiate any noise model. The primary objective was to measure qubit R after the validation sequence, with an anticipated result of \(\ket{0}\). In particular, all the jobs yielded a count of \(\{\text{'0': 1024}\}\).
+
+To compare the results of the simulator with the theoretical analysis, a four-qubit system \((\ket{RMAB})\) should be considered at key stages of circuit execution, as detailed below.
+
+\begin{itemize}
+    \item The quantum state to be teleported, represented by the \texttt{'after\_payload'} barrier in figure~\ref{fig:teleportation_algorithm}), corresponds to the state vector:
+    \begin{equation}
+    \ket{\psi_{\text{ap}}} = \frac{\sqrt{2}i}{2} (\ket{0001} - \ket{0010})
+    \end{equation}
+    The state can be written as \(|0_R 0_M\rangle \otimes \frac{i}{\sqrt{2}}(\ket{0_A 1_B} - \ket{1_A 0_B})\).
+    \item After applying the vTP protocol, at the barrier \textit{"before validation"}, the state vector becomes: 
+    \begin{equation}
+    \begin{split}
+    \ket{\psi_{\text{bv}}} &= \frac{\sqrt{2}i}{4} (\ket{0001} + \ket{0011} + \ket{0101} \\ 
+    & + \ket{0111} - \ket{1000} - \ket{1010} \\ 
+    & - \ket{1100} - \ket{1110})
+    \end{split}
+    \end{equation}
+    \item Finally, after the validation sequence, at \textit{"after\_validation"} barrier, the system's state vector is:
+    \begin{equation}
+    \ket{\psi_{\text{av}}} = \frac{1}{2} (\ket{0000} + \ket{0010} + \ket{0100} + \ket{0110})
+    \end{equation}
+\end{itemize}
+
+Note that the state can be written as \( \ket{0_R} \otimes \frac{1}{\sqrt{2}}(\ket{0_M} + \ket{1_M}) \otimes \frac{1}{\sqrt{2}}(\ket{0_A} + \ket{1_A}) \otimes \ket{0_B} \), which simplifies to \( \ket{0_R} \ket{+_M} \ket{+_A} \ket{0_B} \).
+
+The final state \(\ket{\psi_{\text{av}}}\) shows that qubit R is in the state \(\ket{0}\). For this reason, measurements of qubit R invariably result in '0', thereby confirming the successful implementation and verification of the vTP. This outcome is consistent with the success rate 100\% observed in the simulation.
+
+\subsubsection{Comparing simulation with math analysis} 
+
+The simulator data mirror the step-by-step state evolution displayed in Section~\nameref{sec:vtp}. In that section, the conceptual state is written for the three logical qubits \((M,A,B)\), whereas the circuit register is ordered \((R,M,A,B)\). Dropping the leftmost bit of every four-bit computational basis label gives us a state that must be compared with Equations~\ref{eq:teleportation_grouped_state}--\ref{eq:final_state_variation}:
+
+\begin{itemize}
+    \item \textbf{After payload.} Removing R from the simulated vector \(\frac{\sqrt{2}i}{2}(\ket{0001}-\ket{0010})\) produces \(\frac{i}{\sqrt{2}}(\ket{001}-\ket{010})_{MAB}\), which matches the anti-symmetric Bell component obtained immediately after the payload gate in the theoretical result.
+    \item \textbf{Before validation.} Tracing R in \(\ket{\psi_{\text{bv}}}\) reproduces the superposition of Eq.~\ref{eq:state_after_cx_ab}, the state predicted after the sequence \(CX_{AB}\) followed by \(CZ_{MB}\).
+    \item \textbf{After validation.} Discarding R from \(\ket{\psi_{\text{av}}}\) yields \(|+\rangle_M|+\rangle_A|0\rangle_B\), exactly Eq.~\ref{eq:final_state_variation}. Hence, Bob's qubit B holds the original message state, while M and A are measured in the \(|+\rangle\) state and are disentangled from B, as predicted by theory.
+\end{itemize}
+
+Based on these observations, it is evident that the practical implementation aligns precisely with the predictions of the analytical model.
+
+\subsection{Stage 2: N random gates experiment}
+\label{subsec:nrandom}
+
+Having confirmed the correctness of the vTP algorithm, we proceeded to the second stage to validate our first hypothesis (\ref{h1}). This stage involved a stress test targeting the circuit's reliability on the IBM Quantum runtime service (ibm\_sherbrooke) and the Rigetti Ankaa-3 through qBraid and AWS Quantum. The experiment was designed by inserting a progressively increasing number of single qubit operations into the payload, with the total number of gates ranging from $0$ to $20,000$ and the payload size varying from $1$ to $5$ qubits.
+
+To handle the extensive parameter space, jobs were executed in batches, each handling specific ranges of random gates on IBM hardware: $(200, 205)$, $(500, 505)$, $(1000, 1005)$, $(1500, 1505)$, $(2000, 2005)$, $(3000, 3005)$, $(5000, 5005)$, $(10000, 10005)$, $(20000, 20005)$. However, the Rigetti Ankaa-3 has a gate limit of 20k, therefore, on that hardware, the maximum range is limited to $(7000, 7005)$. The motivation for these ranges is to perform identical tasks with nearby gate counts while enabling the distinction between ranges.
+
+It should be noted that for this experiment, we considered the inclusion of random unitary gates in the payload that were not restricted to the Clifford group. Due to this, their conjugate operations, required for validation, were not necessarily straightforward to implement and might not align with simple Pauli operations. In addition, the presence of quantum states beyond the scope of Pauli operations could result in the introduction of additional errors during measurement, as elaborated in Section ~\ref{sec:background}. That is why, prior to the execution of the second experiment, the codebase was adjusted to generate exclusively random gates within the Clifford group.
+
+Tables~\ref{tab:vtp_success_rates_ibm} and~\ref{tab:vtp_success_rates_rigetti} summarize the performance of vTP after executing the circuit with different gate count ranges for IBM Sherbrooke and Rigetti Ankaa-3, respectively. The distributions show that while IBM Sherbrooke maintains consistent performance across all gate ranges, Rigetti Ankaa-3 exhibits poor reliability, particularly for circuits with fewer than 30 gates, and highly variable performance thereafter. The results demonstrate that IBM provides more predictable and stable vTP performance compared to Rigetti across the gate count spectrum tested.
+
+
+\begin{table}[ht]
+\centering
+\caption{Success Rate Statistics for vTP on IBM Sherbrooke Across Different Gate Count Ranges}
+\label{tab:vtp_success_rates_ibm}
+\begin{tabular}{|c|c|c|}
+    \hline
+    \textbf{Gate Count Range} & \textbf{Success Rate Range (\%)} & \textbf{Mean (\%)} \\
+    \hline
+    10 & 2.0--87.4 & 32.7 \\
+    \hline
+    30 & 2.3--42.6 & 15.5 \\
+    \hline
+    50 & 2.1--17.8 & 7.3 \\
+    \hline
+    70 & 2.1--12.5 & 5.0 \\
+    \hline
+    200 & 2.0--73.3 & 25.9 \\
+    \hline
+    500 & 5.1--64.0 & 23.5 \\
+    \hline
+    1,000 & 5.8--48.7 & 23.4 \\
+    \hline
+    1,500 & 5.4--53.1 & 24.0 \\
+    \hline
+    3,000 & 5.1--53.1 & 25.6 \\
+    \hline
+    5,000 & 5.7--53.8 & 24.6 \\
+    \hline
+    10,000 & 5.6--50.4 & 23.5 \\
+    \hline
+    20,000 & 3.7--52.9 & 22.9 \\
+    \hline
+\end{tabular}
+\end{table}
+
+\begin{table}[ht]
+\centering
+\caption{Success Rate Statistics for vTP on Rigetti Ankaa-3 Across Different Gate Count Ranges}
+\label{tab:vtp_success_rates_rigetti}
+\begin{tabular}{|c|c|c|}
+    \hline
+    \textbf{Gate Count Range} & \textbf{Success Rate Range (\%)} & \textbf{Mean (\%)} \\
+    \hline
+    10 & 0.0--90.0 & 52.2 \\
+    \hline
+    30 & 0.0--60.0 & 24.3 \\
+    \hline
+    50 & 0.0--40.0 & 10.8 \\
+    \hline
+    70 & 0.0--30.0 & 8.3 \\
+    \hline
+    500 & 0.0--90.0 & 40.8 \\
+    \hline
+    2,000 & 10.0 & 10.0 \\
+    \hline
+    5,000 & 10.0--90.0 & 39.5 \\
+    \hline
+\end{tabular}
+\end{table}
+
+In figure~\ref{fig:random_gates_success_rate} the boxplots represent success rate distributions across different gate count ranges; IBM Sherbrooke shows consistent performance while Rigetti Ankaa-3 exhibits high variability, particularly for circuits with fewer than 30 gates. Although data dispersion varies significantly between hardware platforms, the platform choice itself has a more dominant effect on the success rate than the number of random single-qubit gates, with IBM maintaining stable performance across all tested ranges, while Rigetti shows unreliable results.
+
+\begin{figure}[ht]
+    \centering
+    \includegraphics[width=1\linewidth]{4_success_rate_vs_gates_grouped_boxplot_filtered.png}
+    \caption{Box plot comparison of vTP success rates against the number of random single-qubit gates applied to the payload, classified by quantum hardware platform. Each box shows the interquartile range with median (solid line) and mean (dashed line) for each gate count range.}
+    \label{fig:random_gates_success_rate}
+\end{figure}
+
+Based on these results, we concluded that the success rate was not significantly affected by the number of unitary operations applied to a single qubit in the payload for IBM hardware, probably due to circuit optimization by the runtime service prior to execution, even when transpilation is set to optimization level~0. However, Rigetti's highly variable performance suggests platform-specific limitations that affect reliability regardless of gate count. This interpretation was reinforced by the observation that IBM's execution time remained relatively constant throughout the experiment while maintaining consistent success rates. The data is available at \url{https://github.com/xthecapx/qc_experiment/tree/main/experiment/ieee_analysis}."
+
+Based on these results, we concluded that the success rate was not significantly affected by the number of unitary operations applied to a single qubit in the payload for IBM hardware, but there are some limitations on the amount of single-qubit gates in Rigetti that perform worse when the number of gates increases.
+
+To investigate this counterintuitive finding, we conducted a supplementary analysis comparing the original circuit metrics with their ISA (Instruction Set Architecture) equivalents at optimization level~0. This analysis revealed that transpilation substantially increases circuit complexity: depth increases by 50--1600\%, width expands by 567--1367\% to accommodate physical qubit mapping, and total gate count grows by 50--1700\%. These findings indicate that the minimal impact of the logical gate count on the success rate is not due to circuit optimization that reduces complexity, but rather because the transpilation overhead dominates the final circuit characteristics, making the original gate count a poor predictor of quality attributes. The data is available at \url{https://github.com/xthecapx/qc_experiment/tree/main/experiment/ieee_analysis}.
+
+Table~\ref{tab:transpilation_overhead} summarizes the transpilation overhead observed in different payload sizes. The depth increase is most pronounced for small circuits with larger payloads, reaching up to 16$\times$ for 5-qubit payloads with 10 gates, while stabilizing to approximately 1.5--3$\times$ for circuits with 1000 or more gates. A visual representation of these data is illustrated in Figure~\ref{fig:depth_increase_vs_gates}, showing how the depth increase percentage decreases logarithmically with gate count but remains consistently higher for larger payload sizes. This significant overhead clarifies why increasing the payload by thousands of gates barely affects success rates, as the transpilation process is much more complex than the initial gate operations.
+
+\begin{table}[ht]
+\centering
+\caption{Transpilation Overhead: Circuit Depth Increase by Payload Size at optimization\_level=0}
+\label{tab:transpilation_overhead}
+\begin{tabular}{|c|c|c|}
+    \hline
+    \textbf{Payload Size} & \textbf{Mean Depth Increase (\%)} & \textbf{Range (\%)} \\
+    \hline
+    1 qubit & 86 $\pm$ 64 & 48--300 \\
+    \hline
+    2 qubits & 191 $\pm$ 167 & 111--792 \\
+    \hline
+    3 qubits & 310 $\pm$ 271 & 80--1148 \\
+    \hline
+    4 qubits & 454 $\pm$ 346 & 207--1376 \\
+    \hline
+    5 qubits & 591 $\pm$ 403 & 279--1657 \\
+    \hline
+    \textbf{Overall} & \textbf{326 $\pm$ 330} & \textbf{48--1657} \\
+    \hline
+\end{tabular}
+\end{table}
+
+\begin{figure}[ht]
+    \centering
+    \includegraphics[width=1\linewidth]{5_depth_increase_vs_gates.png}
+    \caption{Circuit depth increase percentage after ISA transpilation with optimization\_level=0, grouped by payload size. The logarithmic x-axis shows the number of gates in the original circuit. Error bars represent standard deviation across 5 iterations. Smaller circuits experience dramatically higher overhead, with depth increases ranging from 1.5$\times$ for large circuits to 16$\times$ for small circuits with large payloads.}
+    \label{fig:depth_increase_vs_gates}
+\end{figure}
+
+In conclusion, the experimental results at this stage corroborate our initial hypothesis (\ref{h1}). The number of single qubit operations demonstrated a minimal impact on the final success rate, even after applying tens of thousands of gates. The significant transpilation overhead that dominates circuit properties is responsible for this result. The runtime process involves mapping logical qubits to the physical layout, inserting SWAP gates for routing, and breaking down operations into native gates. Combined with the inherently high fidelity of single-qubit operations \cite{shuklaCompleteCharacterizationDirectlya_2020}, this transpilation overhead makes the raw count of logical single-qubit gates a poor predictor of post-runtime success.
+
+
+\subsection{Stage 3: Circuit depth experiment}
+
+While the initial stress test in stage 2 was concerned with the correlation between the overall execution of the circuit and the success rate, the subsequent stages of the experiment shift towards examining the error rate, calculated as (1 - \texttt{success\_rate}). The reason of this is related to the selected pre-runtime metrics for the following stages (i.e., circuit depth and payload size) being hypothesized to be primary sources of failure, so, a graph displaying the error rate provides a more direct and intuitive representation of their impact. In other words, a positive correlation, where an increase in circuit complexity leads to an increase in measured error, is easier to interpret and model than the corresponding inverse relationship with the success rate.
+
+At this stage, the objective is to analyze the correlation between the depth of the quantum circuit and the error rate.
+
+During the course of analyzing the circuit depth, a function was developed that receives as input parameter a circuit depth value and returns as a result a list of pairs of \texttt{payload\_size} and \texttt{num\_gates} that can be used to generate a payload that combined with the required gates of vTP produces a given depth. For example, to get a depth of 13 for the vTP, the only possible combination is to use a \texttt{payload\_size} of 1 with a single gate.%, because with that setup the final depth of the vTP is 13.
+
+The function uses a simple linear model, as defined in equation \ref{eq:base_depth}, to generate the list of pairs. Since this research aims to determine the correlations with the error rates, rather than developing an optimal model for generating circuits with specific depths, the simple model serves the purpose.
+
+\begin{equation}
+\text{base\_depth} = 13 + 2 \times (\text{payload\_size} - 1)
+\label{eq:base_depth}
+\end{equation}
+
+The \texttt{payload\_size} formula was derived empirically through the process of experimenting with vTP. As we explain before, the constant 13 represents the minimum circuit depth observed for a single-qubit payload (\texttt{payload\_size} = 1) with a baseline X-gate operation. The linear term $(2 \times (\text{payload\_size} - 1))$ corresponds to the additional circuit depth required for each additional qubit in the payload, where approximately two depth units are added per qubit due to entanglement operations and random gate operations. This empirical model serves as a simple predictor for circuit depth estimation in preparing experiments with different payload configurations.
+
+Following this, the \texttt{target\_depth} is defined by taking into account the mean number of supplementary random gates for each payload qubit:
+
+\begin{equation}
+\begin{split}
+&\text{target\_depth} = \\ 
+&\text{base\_depth} + 2 \times \left(\frac{\text{num\_gates}}{\text{payload\_size}}\right) - 2
+\end{split}
+\label{eq:target_depth_model}
+\end{equation}
+
+Within equation~\ref{eq:target_depth_model}, the relation between the number of gates and the payload size serves to estimate the mean depth introduced by the random Clifford gates applied to the payload. The subtraction of 2 accounts for instances where random gates (\texttt{num\_gates} > 0) are deployed, supplanting the default X-gate (nominal depth of 1, yet effectively 2 when the validation sequence is considered) on each payload qubit whose depth contribution was included as part of \texttt{base\_depth}. To determine \text{number\_gates} based on predetermined \texttt{target\_depth} and \texttt{payload\_size}, Equation~\ref{eq:target_depth_model} is adjusted accordingly.
+
+\begin{equation}
+\begin{split}
+& \text{num\_gates} = \\ 
+&\frac{(\text{target\_depth} - \text{base\_depth} + 2) \times \text{payload\_size}}{2}
+\end{split}
+\label{eq:required_gates}
+\end{equation}
+
+Observe that equation~\ref{eq:required_gates} is capable of generating floating-point numbers; consequently, within the code, these values are cast to integers, which results in the truncation of the decimal component without the application of any rounding operations. Furthermore, it is important to acknowledge that \texttt{base\_depth} may potentially exceed \texttt{target\_depth}; therefore, the code imposes a restriction to only incorporate positive values.
+
+It is worth noting that the valid configurations were chosen exclusively when this calculation resulted in a non-negative integer for \texttt{num\_gates}. This methodology enabled the systematic generation of randomized circuits, varying in \texttt{payload\_size} and \texttt{num\_gates}, while maintaining consistent operational depth. However, it should be noted that although the calculations were executed flawlessly within the simulator, the final circuit depth was frequently diminished during execution on the quantum runtime service, attributed to the intrinsic circuit optimization processes of the IBM platform.
+
+Figure \ref{fig:depth_experiment_results_main} show the error rate results for the circuit depth experiment. On the one hand, the plot above shows error rates grouped by target circuit depth, and the plot below shows error rate versus payload size, with points colored by circuit depth. These plots indicate a general trend in which increased circuit complexity (either through depth or payload size, which also influences depth) correlates with higher error rates. The R-squared values associated with linear regression in both charts ($0.22$ for Subfigure~\ref{fig:error_distribution_by_depth} and $0.648$ for Subfigure~\ref{fig:error_rate_vs_payload_colored_by_depth}) suggest a moderate positive correlation between these measures of circuit complexity and the observed error rate.
+
+\begin{figure}[htbp]
+    \centering
+    \begin{subfigure}[b]{0.48\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{error_distribution_by_circuit_depth.png}
+        \caption{Distribution of error rate grouped by circuit depth.}
+        \label{fig:error_distribution_by_depth}
+    \end{subfigure}\hfill
+    \begin{subfigure}[b]{0.48\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{error_rate_vs_payload_size.png}
+        \caption{Error rate versus payload size, colored by circuit depth.}
+        \label{fig:error_rate_vs_payload_colored_by_depth}
+    \end{subfigure}
+    \caption{Error rate analysis for the circuit depth experiment. The error rate is calculated as ($1 - success rate$). The plots show a moderate positive correlation between increased circuit complexity (both depth and payload size) and the observed error rate.}
+    \label{fig:depth_experiment_results_main}
+\end{figure}
+
+The results of stage 3 provide clear support for our second hypothesis \ref{h2}. There is a moderate positive correlation between the depth of the target circuit and the measured error rate. This behavior can be explained since the deeper circuits, which require more computational steps, are particularly susceptible to time-dependent errors, thus leading to a degradation in reliability.  Comparable findings were documented by Perez et al. in \cite{perez_antonReliabilityIBMsPublic_2025}.
+
+\subsection{Stage 4: Payload size experiment}
+
+In the final experimental stage, we investigate the impact of increasing the payload size. A critical aspect of this stage is that each additional qubit added to the payload must be entangled with the existing message qubits to form a cohesive quantum state. In our experimental setup, this is achieved by adding a Controlled-NOT gate for each new payload qubit. As a result, this stage is designed not only to study the effect of adding more qubits but, more importantly, to analyze the impact of the corresponding linear increase in high-error two-qubit entangling operations. Also note that for each payload qubit, three stochastic unitary gates from the Clifford group were also incorporated.
+
+Figure~\ref{fig:payload_experiment_results} presents a detailed analysis of vTP reliability, utilizing three subfigures to illustrate the trends of error rate as a function of the varying payload sizes.
+
+Initially, Subfigure~\ref{fig:payload_err_dist} shows the average error rate as a function of payload size. As predicted, this indicates a robust positive correlation ($R^{2} = 0.840$), which shows that as the number of message qubits increases, the error rate increases significantly, from roughly 39\% with one payload qubit to more than 95\% with five. The error bars, calculated as the standard deviation, illustrate the fluctuation of the error rate for different payload sizes.
+
+Building on this, Subfigure~\ref{fig:payload_err_boxplot} provides a more detailed view of the error rate distributions through box plots. These illustrate not only an increasing median error with payload size but also a wider variance, particularly for payload sizes of two and above.
+
+Additionally, Subfigure~\ref{fig:payload_err_vs_payload_colored_by_depth} explores the interaction between circuit complexity and scalability by plotting individual experimental runs. It displays the error rate versus payload size, with data points colored according to their corresponding circuit depth. This plot also demonstrates a clear trend ($R^{2} = 0.738$) between the payload size—and its requisite CNOT gates—and the error rate. In addition, the color gradient indicates that, for a given payload size, experiments with higher circuit depths (represented by lighter yellowish colors) tend to exhibit higher error rates, underscoring the combined impact of the qubit count, two-qubit gate count, and overall depth on circuit reliability.
+
+\begin{figure}[htbp]
+    \centering
+    \begin{subfigure}[b]{0.48\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{error_distribution_by_payload_size_overall.png}
+        \caption{Mean error rate vs. payload size.}
+        \label{fig:payload_err_dist}
+    \end{subfigure}\hfill
+     \vspace{1em} % Adds a little vertical space between rows of images
+    \begin{subfigure}[b]{0.49\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{error_rate_distribution_by_payload_size.png}
+        \caption{Box plot of error rate distribution by payload size.}
+        \label{fig:payload_err_boxplot}
+    \end{subfigure}
+    \begin{subfigure}[b]{0.49\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{error_rate_vs_payload_size_colored_by_depth.png}
+        \caption{Error rate vs. payload size, colored by circuit depth.}
+        \label{fig:payload_err_vs_payload_colored_by_depth}
+    \end{subfigure}
+
+    \caption{Analysis of vTP reliability as a function of payload size. Increasing the payload size requires adding a CNOT gate for each additional qubit. The error rate is defined as ($1 - success rate$). The plots collectively show a strong positive correlation between payload size and error rate.}
+    \label{fig:payload_experiment_results}
+\end{figure}
+
+The results of stage 4 confirm our third hypothesis \ref{h3}. There is a robust positive correlation between payload size and error rate, which establishes payload size as the most significant factor influencing circuit reliability. The analysis confirms that the error arises not just from including new qubits in the circuit but from the necessary inclusion of lower-fidelity CNOT operations required to entanglement the message in the payload.

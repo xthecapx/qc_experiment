@@ -1,0 +1,132 @@
+\section{Background}
+\label{sec:background}
+
+This section begins by presenting pre-runtime and post-runtime metrics, grouping relevant reported metrics according to the software quality attributes described in the ISO/IEC 25010 standard \cite{ISO25010}. Although this standard was created for classical computing, the literature argues that various QC constructs align with such quality descriptors \cite{CarrilloMetrics2012, Acuaviva2024BenchmarkingQC, munozSetMetricsHybrid_2024, marquezQualityConcernsWhena_2025}, given that quantum algorithms represent an alternative paradigm for addressing computational challenges. It is also important to consider constraints at the business level. While quality attributes from standards such as ISO/IEC 25010 primarily focus on technical and user-centric software quality, factors such as risk management, business success, budget, and financial costs are not explicitly part of quality descriptors. In this study, we recognize the significance of business constraints for the viability of a software project and assert that they must be considered when formulating solutions that incorporate quantum computing.
+
+The section proceeds with a review of established benchmarking classifications, followed by a presentation of our own benchmarking strategy used to run the experiment. Finally, a description of the teleportation protocol is provided to serve as the foundation for the algorithm discussed in the next section.
+
+\subsection{Pre-runtime and Post-runtime metrics}
+
+In order to understand the complexities associated with designing a benchmark, it is fundamental to first analyze the procedure adopted by developers in QC, which can be generally categorized into two overarching steps.
+
+In the first step, developers prepare quantum states by applying a combination of quantum gates to a set of qubits. This process is analogous to the creation of classical computer pseudocodes. Once the quantum algorithm is ready, it is coded using a library such as Qiskit, Q\#, or PennyLane, which is equivalent to using a programming language like Prolog or a hardware description language like VHDL or Verilog. The result of this step is known as a quantum circuit and serves as the basis for the next step.
+
+In the second step, the circuit is run on a QPU and measurements are collected. It is important to note that before reaching the runtime service, the circuit is transpiled and optimized to match the target quantum chip. The process is equivalent to optimizing high-level programming languages before converting them into low-level instructions.
+
+Alternatively, as an intermediate step, developers may run the circuit on a quantum simulator. However, the number of qubits that can be simulated using classical hardware is limited; for example, simulating 30 qubits requires 16 GB of RAM \cite{BenchmarkingSimulatedPhysical}, and even with parallel processing, simulation allows one to go only up to about 240 qubits \cite{zhouWhatLimitsSimulation_2020}.
+
+In accordance with this workflow, which spans from the development of the circuit to its execution on a QPU or simulator, it is possible to differentiate between pre-runtime and post-runtime metrics.
+
+\subsubsection{Pre-runtime metrics}
+
+The pre-runtime metrics are computed after coding the algorithm and before executing the quantum circuit.
+
+The literature highlights that, in addition to some metrics unique to the quantum domain, metrics commonly used in classical computing are also applicable to quantum computing, such as the speed of operations, the number of processing units, and the probability that errors occur in the computation \cite{lallReviewCollectionMetrics}. A number of metrics identified in the literature align with our definition of pre-runtime metrics and, in general, can be categorized under the dimensions of Maintainability.
+
+\textit{Maintainability metrics}. This category addresses the practical, long-term aspects of developing QC algorithms. Maintainability metrics help quantify the effort and resources required to understand, modify, and manage a quantum program throughout its lifecycle.
+
+Maintainability metrics include a variety of related structural, operational and complexity metrics that quantify the effort to understand and manage a quantum program \cite{cruz_lemusQuantumSoftwareQuality_2024, lallReviewCollectionMetrics}. Key structural metrics include circuit width (CW), which is the total number of qubits, and circuit depth (CD), representing the longest path from input to output. An example of complexity metrics are the number of circuit gates (CCG), conditional instructions (CI) to quantify the classical control flow, and quantum cyclomatic complexity (QCC) to measure structural complexity. Finally, some of the operational metrics include tracking the number of measurement operations (MO), initial and reset operations (IRO), and any required auxiliary qubits (AQ).
+
+\subsubsection{Post-runtime metrics}
+
+The post-runtime metrics are computed from the QPU results, which in some cases involves creating a correlation with the pre-runtime metrics. The literature highlights a variety of metrics that are consistent with our post-runtime definition and, in general, these metrics primarily measure the actual Performance Efficiency and Reliability of the quantum system.
+
+\textit{Performance Efficiency metrics}. This characteristic represents the performance of a system in relation to the resources consumed under specified conditions \cite{ISO25010}. In the post-runtime QC context, these metrics evaluate the overall effectiveness of an algorithm by measuring the quality and speed of the results.
+
+Performance Efficiency metrics include evaluations of task-solving efficiency, such as quantum volume and total quantum factor \cite{salmCriterionSuccessfullyExecuting_2020}. The quality of the results is assessed through precision, which examines the degree to which repeated measurements are related, and accuracy, which determines the degree to which the results are related to the true value \cite{bogdanovQuantumMeasurementsHighprecision_2022}. Furthermore, crucial operational aspects are evaluated by measuring decoherence, representing information lost to environmental factors \cite{sainiCurrentChallengeLimitationsa_2023}, and the response times between a request and its result \cite{Moguel2022}. An overview of these performance metrics is available in \cite{wangSoKBenchmarkingPerformance_2022, wackQualitySpeedScale_2021}.
+
+\textit{Reliability metrics}. This characteristic is defined as the degree to which a system performs specified functions under specified conditions for a specified period of time \cite{ISO25010}. In the quantum context, this classification is centered on the final results of a algorithm execution, specifically addressing either its successful or failure conclusion.
+
+Reliability metrics primarily evaluate the success rate \cite{bandicProfilingQuantumCircuits_2024} and the fidelity of the circuit \cite{emersonScalableNoiseEstimation_2005}. The most common protocol for calculating them is Randomized Benchmarking (RB), which, in summary, creates random circuits, applies a mirror circuit, and expects to obtain the identity matrix after measurement \cite{knillRandomizedBenchmarkingQuantum2008_2008}.
+
+\subsubsection{Physical hardware characteristics}
+
+In contrast to pre- and post-runtime metrics, hardware characteristics constitute a set of metrics designed to measure the inherent physical properties of quantum hardware. These metrics, which are governed by hardware calibrations, technologies, and configurations rather than software-level controls, required the establishment of a distinct category for their presentation within this study.
+
+Hardware quality metrics include physical measurements such as T1 (energy relaxation, "the time needed for a qubit to move from the excited state $\ket{1}$ to the ground state $\ket{0}$" \cite{youssefMeasuringSimulatingT12020}) and T2 (dephasing, "the elapsed time before a qubit's resonance frequency becomes unidentified" \cite{youssefMeasuringSimulatingT12020, Alam2019}). In addition, it is possible to measure the error due to noise characterization in quantum gates \cite{tripathiBenchmarkingQuantumGates_2025}.
+
+\subsection{Benchmarking review}
+
+Pranit et al. \cite{malhotraSystematicReviewQuantum_2024} identify several benchmarking variants used to evaluate the performance and reliability of QPUs. The principal variants are outlined as follows.
+
+\subsubsection{Randomized Benchmarking (RB):}
+
+RB is a protocol used to estimate the average error rates of quantum circuits by applying sequences of randomly chosen gates (typically from the Clifford group) and observing the decay in success rate, error propagation, and/or gate fidelity as the size of the generated random circuit increases \cite{knillRandomizedBenchmarkingQuantum2008_2008}. The authors highlight that RB is robust to "state preparation and measurement" (SPAM) errors and scalable to larger systems \cite{malhotraSystematicReviewQuantum_2024}.
+
+In this research, we used elements of RB since it aligns with our definitions of pre-runtime and post-runtime. More precisely, RB offers a structured framework for the analysis of quantum circuits by employing pre-runtime metrics, including gate count, circuit depth, and Clifford group composition, aimed at facilitating the investigation of their correlation with post-runtime metrics, such as execution time or success and error rate \cite{malhotraSystematicReviewQuantum_2024}.
+
+\subsubsection{Application-Oriented Benchmarking:}
+
+This approach focuses on running known quantum algorithms to assess QPU performance and utility \cite{malhotraSystematicReviewQuantum_2024}. The idea behind this benchmarking method is to compare measurements with theoretical results.
+
+In this investigation, we chose not to employ application-oriented benchmarking. Although this methodology offers valuable insights via pre-runtime metrics derived from established algorithms, our study advocates the use of random circuits, as their characteristics are better suited for creating a general-purpose transfer protocol.
+
+\subsubsection{Volumetric Benchmarking:}
+
+In this method, a QPU is mapped using random quantum circuits with varying widths (number of qubits) and depths (number of gate layers) \cite{malhotraSystematicReviewQuantum_2024}. Due to the nature of volumetric benchmarking, which is intended to evaluate hardware, no elements of this group are included in this study.
+
+\subsubsection{Quantum Tomography:}
+
+Quantum tomography is a set of techniques that are used to characterize quantum systems by reconstructing their quantum states or operations \cite{knillRandomizedBenchmarkingQuantum2008_2008}. There are three types of post-runtime metrics in this group: state tomography, which reconstructs a quantum state's density matrix; process tomography, which characterizes quantum operations; and gate set tomography, which describes a set of quantum gates in a self-consistent way \cite{malhotraSystematicReviewQuantum_2024}. 
+
+These benchmarking methods provide detailed information on quantum states and operations. However, they are resource-intensive and require a large number of measurements, which makes them less scalable for large quantum systems \cite{knillRandomizedBenchmarkingQuantum2008_2008}. Additionally, they are not directly controllable at the software layer, as they require specific hardware configurations and measurement protocols \cite{malhotraSystematicReviewQuantum_2024}. Due to these factors, our study does not consider variants of this category.
+
+\subsubsection{Cycle Benchmarking:}
+
+Cycle benchmarking is a protocol that repeatedly applies quantum gates to amplify and characterize errors in a quantum system \cite{malhotraSystematicReviewQuantum_2024}. This approach allows for systematic analysis of errors in quantum circuits. The method is particularly useful for understanding how errors affect circuit success rates, as it provides a direct measurement of error rates by repeatedly applying the same gates to a qubit \cite{knillRandomizedBenchmarkingQuantum2008_2008}.
+
+Considering the nature of understanding system errors, our study integrates cycle benchmarking methodologies. Specifically, we include gates operations on each qubit included in the payload of the designed protocol to determine the success and error rates for each experiment. See Section \nameref{sec:vtp} for more details about the protocol.
+
+\subsubsection{Miscellaneous Approaches:}
+
+These approaches combine components from previously described benchmark variants. Several protocols fit this group, including hybrid benchmarking, which combines classical and quantum components, matchgate benchmarking, which focuses on specific gate sets, and random circuit sampling, which incorporates elements of RB with application-specific metrics \cite{chasseurHybridBenchmarkingArbitrary_2017}.
+
+In the present study, we propose a benchmarking method that fits within this category by integrating cycle benchmarking for error characterization and RB for success rate. 
+
+\subsection{Our benchmarking design}
+\label{benchmarking_design}
+
+This research introduces a benchmarking design based on a variant of the teleportation protocol, intended to evaluate the holistic reliability of an entire circuit rather than the error of individual gates. To achieve this, our methodology focuses on identifying the most effective circuit descriptors by correlating a selected subset of pre- and post-runtime metrics. The majority of these pre-runtime metrics are programmatically gathered from the Qiskit \texttt{QuantumCircuit} class, allowing for a systematic and reproducible approach.
+
+\subsubsection{Pre-runtime metrics}
+
+The pre-runtime metrics selected for this study focus on circuit complexity and configuration attributes. Although a comprehensive list and formal definitions of these metrics are detailed in the literature \cite{cruz_lemusQuantumSoftwareQuality_2024, lallReviewCollectionMetrics}, our investigation focuses on a specific subset. For clarity, we define Circuit Depth (CD) as the longest path of sequential gates, Circuit Width (CW) as the total number of qubits, and Circuit Size as the total number of gates. To understand the composition in more detail, we also track the Gate Count Operations, which provides a specific count for each type of gate used. Finally, we track a configuration metric unique to our experimental design, the payload size, which refers to the number of qubits that comprise the message in our vTP protocol and are initially entangled through CNOT operations.
+
+\subsubsection{Post-runtime Metrics}
+
+The post-runtime metric monitored in this study is the \textbf{Success Rate}, defined as the proportion of quantum circuit executions that produce the desired measurement. In the context of our experiment, where the circuit is designed to return to the all-zero state, the success rate is calculated as:
+
+\begin{equation}
+\begin{split}
+&\text{Success Rate} = \\
+&\frac{\text{Number of measurements with all-zero outcome}}{\text{Total number of shots}} \\
+\end{split}
+\end{equation}
+
+A rate of 1.0 indicates that every execution produced the correct all-zero state, while a rate of 0.0 indicates complete failure. In addition to this, we also track the \textbf{Error Rate}, which is the complement of the success rate ($1 - success rate$) and quantifies the proportion of executions that resulted in an incorrect final state.
+
+\subsubsection{Benchmarking Strategy}
+
+The primary objective of this experiment is to identify pre-runtime metrics that exhibit a correlation with the success/error rate. To this end, our strategy integrates elements of randomization and cycle benchmarking to assess the success rate of transmitting a quantum state across the circuit. This is accomplished by employing RB within the payload to generate messages, thereby repeatedly applying quantum gates to intentionally amplify errors. The success/error rate is finally determined by executing the conjugate operation prior to measurement with the aim of obtaining a result of zero from the measured qubit.
+
+The experimentation phase was structured into three distinct tests: (1) a stress test involving the use of N random gates to serve as the message; (2) a strategy to maintain a specified circuit depth; and (3) an evaluation of how success/error rates scale with an increasing number of qubits. Details about each experiment are presented in Section \ref{sec:experiment}.
+
+\subsection{The teleportation protocol}
+\label{sec:tp}
+
+The teleportation protocol (TP) is a well-defined procedure ---introduced by Bennett et al. \cite{bennettTeleportingUnknownQuantum_1993} in 1993--- that typically involves three qubits: one holding the message to be teleported (Alice's message qubit, M) and two others forming an entangled pair. The protocol assumes that Alice and Bob are physically separated; Alice possesses one qubit from the entangled pair (qubit A), and Bob holds the other (qubit B). In addition, a classical communication channel between them is mandatory.
+
+TP proceeds as follows: Initially, Alice performs operations to entangle her message qubit (M) and her own qubit (A), which was previously entangled with Bob's qubit (B). She then measures these two qubits (M and A). This measurement projects their combined quantum states onto a definite classical outcome, which yields two classical bits of information, but, in doing so, irreversibly alters the original states of M and A. Following this, Alice communicates these classical bits to Bob. Based on the information received, Bob applies a specific set of corrective unitary operations to his qubit (B), and as a result, he recreates the original quantum state of Alice's message (M) on his qubit.
+
+For a formal mathematical treatment of the TP, please refer to the appendix \ref{math:tp}. Of particular importance is Equation~\ref{eq:teleportation_grouped_state}, which forms the basis of the protocol variant discussed in this investigation. The sequence of operations is visually summarized in the quantum circuit diagram in Figure \ref{fig:teleportation_algorithm}, which provides an intuitive overview of the entire process.
+
+\begin{figure*}[ht]
+    \centering
+    \includegraphics[width=0.9\textwidth]{teleportation_circuit_grayscale.png}
+    \caption{A visual representation of TP's quantum circuit. Notice how the last two gates have a conditional operations based on the observation result.}
+    \label{fig:teleportation_algorithm}
+\end{figure*}
+
+It is important to note that the efficacy of the protocol is dependent on a classical communication channel. Specifically, Alice is required to transmit her measurement outcome to Bob, enabling him to execute the corresponding corrective operation. This classical communication requirement ensures that no information is transmitted faster than the speed of light, thereby maintaining consistency with the principles of relativistic causality.
+
+To close this section, it is pertinent to acknowledge the complexities inherent in executing the teleportation protocol in practical scenarios. In addition to the challenges related to the loss incurred during the separation of entangled qubits, there must also be an active classical communication channel available. However, existing literature has documented the successful transmission of a single photon across a distance exceeding 14,000 km utilizing a ground-to-satellite quantum teleportation system \cite{renGroundtosatelliteQuantumTeleportation_2017}.

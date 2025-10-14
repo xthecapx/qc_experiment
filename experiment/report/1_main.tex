@@ -1,0 +1,79 @@
+\documentclass{ieeeaccess}
+\usepackage{cite}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{algorithmic}
+\usepackage{graphicx}
+\usepackage{textcomp}
+\usepackage{subfiles}
+\usepackage{physics}
+\usepackage{enumitem}
+\usepackage{nameref}
+\usepackage{hyperref}
+\usepackage{subcaption}
+\usepackage{lastpage,fancyhdr}
+\usepackage{epstopdf}
+\usepackage{multirow}
+
+\def\BibTeX{{\rm B\kern-.05em{\sc i\kern-.025em b}\kern-.08em
+    T\kern-.1667em\lower.7ex\hbox{E}\kern-.125emX}}
+\begin{document}
+\history{Date of publication xxxx 00, 0000, date of current version xxxx 00, 0000.}
+\doi{10.1109/ACCESS.2017.DOI}
+
+\title{A Teleportation Protocol Variant for Single-QPU Benchmarking}
+\author{\uppercase{Cristian M\'arquez}\authorrefmark{1},
+\uppercase{Daniel Sierra-Sosa\authorrefmark{2}, and Kelly Garc\'es}\authorrefmark{1}}
+\address[1]{Universidad de los Andes, Department of Systems and Computing Engineering, Bogotá, Colombia (e-mail: {c.marquezb, kj.garces971}@uniandes.edu.co)}
+\address[2]{Electrical Engineering and Computer Science, The Catholic University of America, Washington, DC 
+20064 (e-mail: sierrasosa@cua.edu)}
+% \tfootnote{This paragraph of the first footnote will contain support 
+% information, including sponsor and financial support acknowledgment. For 
+% example, ``This work was supported in part by the U.S. Department of 
+% Commerce under Grant BS123456.''}
+
+\markboth
+{Author \headeretal: Preparation of Papers for IEEE TRANSACTIONS and JOURNALS}
+{Author \headeretal: Preparation of Papers for IEEE TRANSACTIONS and JOURNALS}
+
+\corresp{Corresponding author: Daniel Sierra-Sosa (e-mail: sierrasosa@cua.edu).}
+
+\begin{abstract}
+With the advent of more quantum computing applications, it is imperative to provide developers with a set of metrics to determine how much trust they can place in the execution of their programs. In this study, we propose a novel protocol based on quantum teleportation to systematically evaluate the performance of quantum circuits and quantify their execution reliability. Our protocol consists of three parts: the payload, composed of entangled qubits with random gates applied to each wire; the bridge, which corresponds to the teleportation-inspired protocol; and an inverse payload operation, designed to return the circuit to its initial state.
+
+We validated the algorithm by elaborating its mathematical framework, followed by a comparative analysis with simulation results using Qiskit AerSimulator and ultimately through an execution on the IBM quantum and Rigetti services. A key aspect of our methodology was to set the circuit transpilation to its lowest optimization level (level 0). We recognize that even without aggressive optimization, randomly generated gates can form self-canceling sequences. As a result, our analysis correlates the pre-runtime metrics of the final, minimally-transpiled circuit (such as its actual depth and gate count) with post-runtime results (such as success rate and error distribution). This approach reveals significant correlations between payload size, circuit depth, and generated error, providing developers with quantitative benchmarks to evaluate the reliability of quantum circuit execution and the limitations of scalability for their applications.
+\end{abstract}
+
+\begin{keywords}
+Quantum computing, Qubits, Quantum Frameworks, Benchmarking, Quantum Quality Metrics
+\end{keywords}
+
+\titlepgskip=-15pt
+
+\maketitle
+
+\subfile{introduction-software}
+\subfile{background}
+\subfile{algorithm}
+\subfile{experiment}
+\subfile{conclusions}
+
+\appendices
+
+\subfile{appendices}
+
+\bibliographystyle{IEEEtran}
+\bibliography{Bibliography}
+
+\begin{IEEEbiography}[{\includegraphics[width=1in,height=1.25in,clip,keepaspectratio]{cristian.png}}]{Cristian Marquez} is an experienced Software Engineer with over a decade's worth of experience developing and leading teams to develop and deploy web applications services using JavaScript and Python. In 2011, he earned a bachelor's degree in electronic engineering from the \emph{Universidad Nacional de Colombia}, and in 2013, he earned a master's degree in engineering from the same institution. During 2022, he resumed his research career by co-authoring a book called \emph{"Modelos matemáticos para la gestión curricular"}. In 2024 he began his doctorate in engineering to conduct research on quantum computing. He is interested in distributed systems, software architectures and quantum technologies.
+\end{IEEEbiography}
+
+\begin{IEEEbiography}[{\includegraphics[width=1in,height=1.25in,clip,keepaspectratio]{daniel-sierra-sosa1.jpg}}]{Daniel Sierra} Dr. Daniel Sierra-Sosa is an Assistant Professor in the Department of Computer Science at The Catholic University of America. He is an active researcher in the fields of quantum computing, machine learning, healthcare data processing, image processing, and data analytics.
+Dr. Sierra-Sosa has been involved in multiple research activities, including industry contracts, collaborations with public health entities, and other academic partners; in addition to his involvement in academic research proposals. Prior to joining Catholic University, he participated in a collaborative industry initiative with a healthcare company, working on projects that included mobile application development, virtual reality, medical imaging, and predictive analytics. He has led various projects and has taken significant responsibilities in mentoring graduate and undergraduate students. He is the co-author and lead author of several manuscripts published in recognized journals. Dr. Sierra-Sosa is also a Qiskit Advocate and a certified instructor in quantum computing, data science, and artificial intelligence.
+\end{IEEEbiography}
+
+\begin{IEEEbiography}[{\includegraphics[width=1in,height=1.25in,clip,keepaspectratio]{cropped-KellyGarces-1.png}}]{Kelly Gar\'ces} is associate professor of the \emph{Department of Systems and Computing Engineering} at the \emph{Universidad de los Andes} (Bogot\'a, Colombia). Prior to this, she was an R\&D engineer and software engineer at \emph{Netfective Technology}. She received her Ph.D. in September 2010 from the \emph{Université de Nantes}. In 2011, she was a postdoctoral fellow at the \emph{INRIA laboratory}. She has participated in research and development projects (proprietary or open source) since 2005, financed with private and public funds. Her research interests are software architecture, evolution and maintenance of complex software systems (e.g. legacy applications, IoT systems, quantum systems, microservice-based applications, etc.). Some of her lectures are: Software Architecture and Design, Software for Internet of Things (IoT), Software Modeling, Software Modernization, Model Driven Engineering. 
+\end{IEEEbiography}
+
+\EOD
+
+\end{document}
