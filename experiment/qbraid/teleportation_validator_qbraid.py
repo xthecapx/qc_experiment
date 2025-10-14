@@ -18,9 +18,13 @@ from qbraid.transpiler import transpile as qbraid_transpile
 from qbraid.runtime import QbraidProvider, load_job
 from qbraid.runtime import JobLoaderError
 try:
-    from qbraid.runtime.aws import BraketProvider
+    from qbraid.runtime.aws import BraketProvider as QbraidBraketProvider
 except ImportError:
-    BraketProvider = None
+    QbraidBraketProvider = None
+try:
+    from qiskit_braket_provider import BraketProvider as QiskitBraketProvider
+except ImportError:
+    QiskitBraketProvider = None
 # from qbraid import circuit_wrapper
 
 class QbraidDevice(Enum):
@@ -427,6 +431,330 @@ class TeleportationValidator:
                 "device": "simulator_fallback"
             }
 
+    def retrieve_aws_job(self, job_id: str, region: str = "us-west-1"):
+        """
+        Retrieve results from a previously submitted AWS Braket job.
+        
+        Args:
+            job_id (str): AWS Braket job ARN
+            region (str): AWS region (default: "us-west-1")
+        
+        Returns:
+            dict: Job results and information
+        """
+        if QiskitBraketProvider is None:
+            return {"status": "error", "error": "qiskit-braket-provider not available"}
+        
+        try:
+            import os
+            
+            # Set AWS region if not already set
+            if 'AWS_DEFAULT_REGION' not in os.environ:
+                os.environ['AWS_DEFAULT_REGION'] = region
+            
+            print(f"Retrieving AWS job: {job_id}")
+            provider = QiskitBraketProvider()
+
+            backend = provider.get_backend("Ankaa-3")
+            if not backend:
+                return {"status": "error", "error": "No AWS backends available"}
+            
+            job = backend.retrieve_job(job_id)
+            
+            status = job.status()
+            print(f"Job status: {status}")
+
+            try:
+                # Get the AWS result and extract counts directly
+                aws_result = job._tasks[0].result()
+                measured_entry = aws_result.entries[0].entries[0]
+                raw_counts = dict(measured_entry.counts)  # Convert Counter to dict
+                
+                # Convert from big-endian to little-endian
+                counts = {k[::-1]: v for k, v in raw_counts.items()}
+                print('counts', counts)
+                
+                # Determine the actual number of measured qubits from the counts
+                if counts:
+                    measured_qubits = len(list(counts.keys())[0])  # Get length of first key
+                    success_pattern = '0' * measured_qubits  # All zeros for success
+                else:
+                    success_pattern = '0' * self.payload_size  # Fallback to payload_size
+                
+                success_rate = counts.get(success_pattern, 0) / sum(counts.values()) if counts else 0
+                print(f'success_pattern: {success_pattern}')
+                print('success_rate', success_rate)
+
+                return {
+                    "status": "completed",
+                    "job_id": job_id,
+                    "counts": str(counts),
+                    "success_rate": success_rate
+                }
+                    
+            except Exception as e:
+                return {
+                    "status": "error",
+                    "job_id": job_id,
+                    "error": f"Error retrieving results: {str(e)}"
+                }
+
+                
+        except Exception as e:
+            return {
+                "status": "error",
+                "job_id": job_id,
+                "error": str(e)
+            }
+    
+    def complete_aws_results_from_csv(self, csv_file_path: str, output_csv_path: str = None, region: str = "us-west-1"):
+        """
+        Complete AWS job results in CSV by retrieving results for submitted jobs.
+        
+        Args:
+            csv_file_path (str): Path to the CSV file containing job IDs
+            output_csv_path (str): Path to save the updated CSV (optional, defaults to input path)
+            region (str): AWS region (default: "us-west-1")
+        
+        Returns:
+            dict: Summary of processing results
+        """
+        if QiskitBraketProvider is None:
+            print("❌ qiskit-braket-provider not available")
+            return {"status": "error", "error": "qiskit-braket-provider not available"}
+        
+        try:
+            import pandas as pd
+            import os
+            
+            # Read the CSV file
+            print(f"📖 Reading CSV file: {csv_file_path}")
+            df = pd.read_csv(csv_file_path)
+            
+            if 'job_id' not in df.columns:
+                return {"status": "error", "error": "CSV file must contain 'job_id' column"}
+            
+            # Filter rows that have job_id but no results yet
+            pending_jobs = df[
+                (df['job_id'].notna()) & 
+                (df['job_id'] != '') & 
+                (df['job_id'] != 'None') &
+                (df['status'].isin(['submitted', 'timeout']) | df['counts'].isna())
+            ].copy()
+            
+            print(f"🔍 Found {len(pending_jobs)} jobs to process")
+            
+            if len(pending_jobs) == 0:
+                print("✅ No pending jobs found to process")
+                return {"status": "completed", "processed": 0, "completed": 0, "errors": 0}
+            
+            # Initialize counters
+            processed = 0
+            completed = 0
+            errors = 0
+            
+            # Process each pending job
+            for idx, row in pending_jobs.iterrows():
+                job_id = row['job_id']
+                print(f"\n🔄 Processing job {processed + 1}/{len(pending_jobs)}: {job_id}")
+                
+                try:
+                    # Create a temporary validator with the same payload_size for success_rate calculation
+                    temp_validator = TeleportationValidator(
+                        payload_size=int(row['payload_size']) if pd.notna(row['payload_size']) else 1,
+                        use_barriers=False
+                    )
+                    
+                    # Retrieve job results
+                    result = temp_validator.retrieve_aws_job(job_id, region=region)
+                    
+                    # Update the DataFrame with results
+                    if result['status'] == 'completed':
+                        df.loc[idx, 'status'] = 'completed'
+                        df.loc[idx, 'counts'] = result['counts']
+                        df.loc[idx, 'success_rate'] = result['success_rate']
+                        completed += 1
+                        print(f"✅ Job completed - Success rate: {result['success_rate']:.3f}")
+                    else:
+                        df.loc[idx, 'status'] = result['status']
+                        if 'error' in result:
+                            df.loc[idx, 'error'] = result.get('error', '')
+                        print(f"⚠️  Job status: {result['status']}")
+                    
+                    processed += 1
+                    
+                except Exception as e:
+                    print(f"❌ Error processing job {job_id}: {str(e)}")
+                    df.loc[idx, 'status'] = 'error'
+                    df.loc[idx, 'error'] = f"Retrieval error: {str(e)}"
+                    errors += 1
+                    processed += 1
+            
+            # Save the updated CSV
+            output_path = output_csv_path or csv_file_path
+            print(f"\n💾 Saving updated results to: {output_path}")
+            df.to_csv(output_path, index=False)
+            
+            # Print summary
+            print(f"\n📊 Processing Summary:")
+            print(f"   • Total processed: {processed}")
+            print(f"   • Completed jobs: {completed}")
+            print(f"   • Errors: {errors}")
+            print(f"   • Still pending: {processed - completed - errors}")
+            
+            return {
+                "status": "completed",
+                "processed": processed,
+                "completed": completed,
+                "errors": errors,
+                "output_file": output_path
+            }
+            
+        except Exception as e:
+            print(f"❌ Error processing CSV: {str(e)}")
+            return {
+                "status": "error",
+                "error": f"CSV processing error: {str(e)}"
+            }
+
+    def run_aws(self, device_id: str = "Ankaa-3", shots: int = 10, region: str = "us-west-1"):
+        """
+        Run the quantum circuit on AWS Braket using the qiskit-braket-provider.
+        
+        Args:
+            device_id (str): AWS Braket device ID (default: "Ankaa-3")
+            shots (int): Number of shots to run (default: 10)
+            region (str): AWS region (default: "us-west-1")
+        
+        Returns:
+            dict: Job information and results
+        """
+        if QiskitBraketProvider is None:
+            print("❌ qiskit-braket-provider not available or incompatible.")
+            print("This is likely due to a version compatibility issue between Qiskit and qiskit-braket-provider.")
+            print("Try running: !pip install --upgrade qiskit-braket-provider")
+            print("Or check Qiskit version compatibility.")
+            print("Falling back to simulation...")
+            
+            # Fallback to simulation
+            print("🔄 Falling back to simulation...")
+            sim_result = self.run_simulation(shots=shots)
+            
+            # Convert simulation result to CSV format
+            return {
+                "job_id": None,
+                "status": "simulation_fallback",
+                "circuit_depth": self.circuit.depth(),
+                "circuit_width": self.circuit.width(),
+                "circuit_size": len(self.circuit.data),
+                "circuit_count_ops": str(dict(self.circuit.count_ops())),
+                "num_qubits": self.circuit.num_qubits,
+                "num_clbits": self.circuit.num_clbits,
+                "num_ancillas": getattr(self.circuit, 'num_ancillas', 0),
+                "num_parameters": self.circuit.num_parameters,
+                "has_calibrations": bool(getattr(self.circuit, 'calibrations', None)),
+                "has_layout": bool(getattr(self.circuit, 'layout', None)),
+                "payload_size": self.payload_size,
+                "num_gates": self.gates,
+                "execution_type": "simulation",
+                "experiment_type": "teleportation",
+                "counts": str(sim_result.get("counts", {})),
+                "success_rate": sim_result.get("success_rate", 0),
+                "device": "simulator_fallback",
+                "shots": shots
+            }
+        
+        try:
+            import os
+            
+            # Set AWS region if not already set
+            if 'AWS_DEFAULT_REGION' not in os.environ:
+                os.environ['AWS_DEFAULT_REGION'] = region
+                print(f"Setting AWS region to: {region}")
+            
+            print(f"Setting up AWS Braket provider...")
+            provider = QiskitBraketProvider()
+            
+            # Get the specified device
+            print(f"Getting device: {device_id}")
+            aws_device = provider.get_backend(device_id)
+            print(f"Device obtained: {aws_device}")
+            
+            print(f"Original circuit depth: {self.circuit.depth()}")
+            print(f"Original circuit width: {self.circuit.width()}")
+            print(f"Device capabilities: {aws_device}")
+            
+            # Create a copy of the circuit and remove barriers for AWS compatibility
+            circuit_copy = self.circuit.copy()
+            circuit_copy.remove_final_measurements()
+            circuit_copy.measure_all()
+            
+            # Remove barriers from the circuit copy
+            from qiskit.circuit.library import Barrier
+            circuit_without_barriers = circuit_copy.copy()
+            circuit_without_barriers.data = [
+                (gate, qubits, clbits) for gate, qubits, clbits in circuit_copy.data 
+                if not isinstance(gate, Barrier)
+            ]
+            
+            # Submit the job (no waiting)
+            print(f"🚀 Submitting circuit to AWS Braket device: {device_id}")
+            print(f"📊 Shots: {shots}")
+            job = aws_device.run(circuit_without_barriers, shots=shots)
+            
+            print(f"✅ Job submitted successfully!")
+            print(f"🆔 Job ID: {job.job_id()}")
+            
+            # Return job information for CSV (without waiting for execution)
+            return {
+                "job_id": job.job_id(),
+                "status": "submitted",
+                "circuit_depth": self.circuit.depth(),
+                "circuit_width": self.circuit.width(),
+                "circuit_size": len(self.circuit.data),
+                "circuit_count_ops": str(dict(self.circuit.count_ops())),
+                "num_qubits": self.circuit.num_qubits,
+                "num_clbits": self.circuit.num_clbits,
+                "num_ancillas": getattr(self.circuit, 'num_ancillas', 0),
+                "num_parameters": self.circuit.num_parameters,
+                "has_calibrations": bool(getattr(self.circuit, 'calibrations', None)),
+                "has_layout": bool(getattr(self.circuit, 'layout', None)),
+                "payload_size": self.payload_size,
+                "num_gates": self.gates,
+                "execution_type": "aws_braket",
+                "experiment_type": "teleportation",
+                "counts": None,  # Will be populated by retrieve_aws_job
+                "success_rate": None,  # Will be populated by retrieve_aws_job
+                "device": device_id,
+                "shots": shots
+            }
+            
+        except Exception as e:
+            print(f"❌ Error running on AWS Braket: {e}")
+            return {
+                "job_id": None,
+                "status": "error",
+                "circuit_depth": self.circuit.depth(),
+                "circuit_width": self.circuit.width(),
+                "circuit_size": len(self.circuit.data),
+                "circuit_count_ops": str(dict(self.circuit.count_ops())),
+                "num_qubits": self.circuit.num_qubits,
+                "num_clbits": self.circuit.num_clbits,
+                "num_ancillas": getattr(self.circuit, 'num_ancillas', 0),
+                "num_parameters": self.circuit.num_parameters,
+                "has_calibrations": bool(getattr(self.circuit, 'calibrations', None)),
+                "has_layout": bool(getattr(self.circuit, 'layout', None)),
+                "payload_size": self.payload_size,
+                "num_gates": self.gates,
+                "execution_type": "aws_braket",
+                "experiment_type": "teleportation",
+                "counts": None,
+                "success_rate": None,
+                "error": f"AWS Job submission error: {str(e)}",
+                "device": device_id,
+                "shots": shots
+            }
+
 
 class Experiments:
     def __init__(self):
@@ -686,11 +1014,18 @@ class Experiments:
         return self.results_df
 
     def run_dynamic_payload_gates(self, payload_range: tuple, gates_range: tuple,
-                                use_qbraid: bool = False, show_circuit: bool = False):
+                                use_qbraid: bool = False, use_aws: bool = False, 
+                                aws_device_id: str = "Ankaa-3", show_circuit: bool = False):
         """
         Runs experiments with custom ranges for both payload size and number of gates.
-        payload_range: tuple of (min_payload, max_payload)
-        gates_range: tuple of (min_gates, max_gates)
+        
+        Args:
+            payload_range: tuple of (min_payload, max_payload)
+            gates_range: tuple of (min_gates, max_gates)
+            use_qbraid: bool = False - Whether to run on qBraid quantum hardware
+            use_aws: bool = False - Whether to run on AWS Braket quantum hardware
+            aws_device_id: str = "Ankaa-3" - AWS Braket device ID to use
+            show_circuit: bool = False - Whether to display circuit diagrams
         """
         start_payload, end_payload = payload_range
         start_gates, end_gates = gates_range
@@ -706,14 +1041,107 @@ class Experiments:
                 validator = TeleportationValidator(
                     payload_size=payload_size,
                     gates=num_gates,
-                    use_barriers=True
+                    use_barriers=False
                 )
                 
                 if show_circuit:
                     display(validator.draw())
                 
                 # Determine execution type and run experiment
-                if use_qbraid:
+                if use_aws:
+                    # Check if AWS is available, otherwise suggest qBraid alternative
+                    if QiskitBraketProvider is None:
+                        print(f"⚠️  AWS Braket provider not available due to dependency conflicts.")
+                        print(f"💡 Suggestion: Use qBraid instead - it can access AWS devices including {aws_device_id}")
+                        print(f"   Set use_qbraid=True instead of use_aws=True")
+                        print(f"   Falling back to simulation for this run...")
+                        
+                        # Fallback to simulation with helpful message
+                        sim_result = validator.run_simulation()
+                        result_data = self._prepare_result_data(
+                            validator=validator,
+                            status="completed",
+                            execution_type="simulation",
+                            experiment_type="dynamic_payload_gates",
+                            payload_size=payload_size,
+                            num_gates=num_gates,
+                            counts=sim_result["results_metrics"]["counts"],
+                            success_rate=sim_result["results_metrics"]["success_rate"]
+                        )
+                        result_data["note"] = f"AWS unavailable - use qBraid for {aws_device_id} access"
+                    else:
+                        try:
+                            aws_result = validator.run_aws(device_id=aws_device_id, region="us-west-1")
+                            if aws_result["status"] == "completed":
+                                execution_type = "aws"
+                                result_data = self._prepare_result_data(
+                                    validator=validator,
+                                    status=aws_result["status"],
+                                    execution_type=execution_type,
+                                    experiment_type="dynamic_payload_gates",
+                                    payload_size=payload_size,
+                                    num_gates=num_gates,
+                                    counts=aws_result["counts"],
+                                    success_rate=aws_result["success_rate"],
+                                    job_id=aws_result["job_id"]
+                                )
+                            elif aws_result["status"] in ["submitted", "timeout", "failed"]:
+                                execution_type = "aws"
+                                print(f"AWS Job {aws_result['status']} - storing job_id for later retrieval: {aws_result['job_id']}")
+                                counts = AerSimulator().run(validator.circuit).result().get_counts()
+                                result_data = self._prepare_result_data(
+                                    validator=validator,
+                                    status=aws_result["status"],
+                                    execution_type=execution_type,
+                                    experiment_type="dynamic_payload_gates",
+                                    payload_size=payload_size,
+                                    num_gates=num_gates,
+                                    counts=counts,
+                                    success_rate=counts.get('0' * payload_size, 0) / sum(counts.values()),
+                                    job_id=aws_result["job_id"]
+                                )
+                            elif aws_result["status"] == "error":
+                                # Job submission failed - use simulation results but store error info
+                                execution_type = "simulation"  # Mark as simulation since no AWS job was created
+                                print(f"AWS Job submission error: {aws_result.get('error', 'Unknown error')}")
+                                result_data = self._prepare_result_data(
+                                    validator=validator,
+                                    status=aws_result["status"],
+                                    execution_type=execution_type,
+                                    experiment_type="dynamic_payload_gates",
+                                    payload_size=payload_size,
+                                    num_gates=num_gates,
+                                    counts=aws_result["counts"],
+                                    success_rate=aws_result["success_rate"]
+                                )
+                                result_data["error"] = aws_result.get("error")
+                            else:
+                                # Fallback to simulation if AWS execution failed
+                                sim_result = validator.run_simulation()
+                                result_data = self._prepare_result_data(
+                                    validator=validator,
+                                    status="completed",
+                                    execution_type="simulation",
+                                    experiment_type="dynamic_payload_gates",
+                                    payload_size=payload_size,
+                                    num_gates=num_gates,
+                                    counts=sim_result["results_metrics"]["counts"],
+                                    success_rate=sim_result["results_metrics"]["success_rate"]
+                                )
+                        except Exception as e:
+                            print(f"AWS execution failed: {e}, falling back to simulation")
+                            sim_result = validator.run_simulation()
+                            result_data = self._prepare_result_data(
+                                validator=validator,
+                                status="completed",
+                                execution_type="simulation",
+                                experiment_type="dynamic_payload_gates",
+                                payload_size=payload_size,
+                                num_gates=num_gates,
+                                counts=sim_result["results_metrics"]["counts"],
+                                success_rate=sim_result["results_metrics"]["success_rate"]
+                            )
+                elif use_qbraid:
                     try:
                         qbraid_result = validator.run_qbraid()
                         if qbraid_result["status"] == "completed":

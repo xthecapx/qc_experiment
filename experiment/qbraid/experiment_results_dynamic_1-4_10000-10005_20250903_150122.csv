@@ -1,2 +1,0 @@
-status,circuit_depth,circuit_width,circuit_size,circuit_count_ops,num_qubits,num_clbits,num_ancillas,num_parameters,has_calibrations,has_layout,payload_size,num_gates,execution_type,experiment_type,job_id,counts,success_rate
-timeout,20011,5,20011,"{""x"": 3394, ""z"": 3384, ""s"": 3335, ""sdg"": 3335, ""h"": 3284, ""y"": 3272, ""cx"": 5, ""barrier"": 4, ""cz"": 1, ""measure"": 1}",4,1,0,0,False,False,1,10000,qbraid,dynamic_payload_gates,rigetti_ankaa_3-cmarquezb-qjob-dkdc3u0cn1jdscbqqigj,"{""0"": 1024}",1.0

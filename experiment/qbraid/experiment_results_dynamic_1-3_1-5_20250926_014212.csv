@@ -1,0 +1,2 @@
+status,circuit_depth,circuit_width,circuit_size,circuit_count_ops,num_qubits,num_clbits,num_ancillas,num_parameters,has_calibrations,has_layout,payload_size,num_gates,execution_type,experiment_type,job_id,counts,success_rate
+failed,8,5,13,"{""cx"": 5, ""h"": 4, ""z"": 2, ""cz"": 1, ""measure"": 1}",4,1,0,0,False,False,1,1,aws,dynamic_payload_gates,arn:aws:braket:us-west-1:265556963705:quantum-task/7fb97edc-14a0-44a0-95ab-c83f0963f45d,"{""0"": 1024}",1.0

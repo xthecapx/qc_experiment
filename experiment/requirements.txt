@@ -1,10 +1,12 @@
-qiskit==2.1.2
-qiskit-aer==0.17.1
-qiskit-ibm-runtime==0.41.1
+qiskit==1.4.4
+qiskit-aer
+qiskit-ibm-runtime
+qiskit-braket-provider==0.6.0
+qiskit_qasm3_import
 pylatexenc
-qbraid[braket]==0.9.8
-ibm-cloud-sdk-core==3.24.2
-ibm-platform-services==0.68.2
+qbraid[braket]
+ibm-cloud-sdk-core
+ibm-platform-services
 pydantic-settings
 requests
 dotenv
@@ -14,3 +16,4 @@ spacy
 seaborn
 nltk
 scikit-learn
+lmfit

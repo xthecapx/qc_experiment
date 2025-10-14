@@ -13,3 +13,5 @@ services:
       - JUPYTER_PORT=4321
       - PYTHONPATH=/home/jovyan/work
       - JUPYTER_ENABLE_AUTORELOAD=yes
+    env_file:
+      - .env

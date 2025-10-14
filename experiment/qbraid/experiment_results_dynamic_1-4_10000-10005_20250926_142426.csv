@@ -1,0 +1,7 @@
+status,circuit_depth,circuit_width,circuit_size,circuit_count_ops,num_qubits,num_clbits,num_ancillas,num_parameters,has_calibrations,has_layout,payload_size,num_gates,execution_type,experiment_type,error
+error,20005,5,20011,"{""z"": 3410, ""h"": 3376, ""sdg"": 3367, ""s"": 3367, ""x"": 3298, ""y"": 3186, ""cx"": 5, ""cz"": 1, ""measure"": 1}",4,1,0,0,False,False,1,10000,simulation,dynamic_payload_gates,"AWS Job submission error: An error occurred (ValidationException) when calling the CreateQuantumTask operation: Validation failed for one or more programs. See 'programSetValidationFailures' for details. First failure:
+{'programIndex': 0, 'errors': ['The total number of gates in the circuit is higher than 20,000. It is currently 20,010.']}
+Rerun the task and catch the exception for more details"
+error,20007,5,20013,"{""sdg"": 3371, ""s"": 3371, ""h"": 3352, ""y"": 3350, ""z"": 3288, ""x"": 3274, ""cx"": 5, ""cz"": 1, ""measure"": 1}",4,1,0,0,False,False,1,10001,simulation,dynamic_payload_gates,"AWS Job submission error: An error occurred (ValidationException) when calling the CreateQuantumTask operation: Validation failed for one or more programs. See 'programSetValidationFailures' for details. First failure:
+{'programIndex': 0, 'errors': ['The total number of gates in the circuit is higher than 20,000. It is currently 20,012.']}
+Rerun the task and catch the exception for more details"
