@@ -61,124 +61,102 @@ Based on these observations, it is evident that the practical implementation ali
 \subsection{Stage 2: N random gates experiment}
 \label{subsec:nrandom}
 
-Having confirmed the correctness of the vTP algorithm, we proceeded to the second stage to validate our first hypothesis (\ref{h1}). This stage involved a stress test targeting the circuit's reliability on the IBM Quantum runtime service (ibm\_sherbrooke) and the Rigetti Ankaa-3 through qBraid and AWS Quantum. The experiment was designed by inserting a progressively increasing number of single qubit operations into the payload, with the total number of gates ranging from $0$ to $20,000$ and the payload size varying from $1$ to $5$ qubits.
+Having confirmed the correctness of the vTP algorithm, we proceeded to the second stage to validate our first hypothesis (\ref{h1}). This stage involved a stress test targeting the circuit's reliability on the IBM Quantum runtime service (ibm\_sherbrooke) and the Rigetti Ankaa-3 through qBraid and the AWS quantum service. The experiment was designed by inserting a progressively increasing number of single qubit operations into the payload, with the total number of gates ranging from $0$ to $20,000$ and the payload size varying from $1$ to $5$ qubits.
 
 To handle the extensive parameter space, jobs were executed in batches, each handling specific ranges of random gates on IBM hardware: $(200, 205)$, $(500, 505)$, $(1000, 1005)$, $(1500, 1505)$, $(2000, 2005)$, $(3000, 3005)$, $(5000, 5005)$, $(10000, 10005)$, $(20000, 20005)$. However, the Rigetti Ankaa-3 has a gate limit of 20k, therefore, on that hardware, the maximum range is limited to $(7000, 7005)$. The motivation for these ranges is to perform identical tasks with nearby gate counts while enabling the distinction between ranges.
 
 It should be noted that for this experiment, we considered the inclusion of random unitary gates in the payload that were not restricted to the Clifford group. Due to this, their conjugate operations, required for validation, were not necessarily straightforward to implement and might not align with simple Pauli operations. In addition, the presence of quantum states beyond the scope of Pauli operations could result in the introduction of additional errors during measurement, as elaborated in Section ~\ref{sec:background}. That is why, prior to the execution of the second experiment, the codebase was adjusted to generate exclusively random gates within the Clifford group.
 
-Tables~\ref{tab:vtp_success_rates_ibm} and~\ref{tab:vtp_success_rates_rigetti} summarize the performance of vTP after executing the circuit with different gate count ranges for IBM Sherbrooke and Rigetti Ankaa-3, respectively. The distributions show that while IBM Sherbrooke maintains consistent performance across all gate ranges, Rigetti Ankaa-3 exhibits poor reliability, particularly for circuits with fewer than 30 gates, and highly variable performance thereafter. The results demonstrate that IBM provides more predictable and stable vTP performance compared to Rigetti across the gate count spectrum tested.
-
-
 \begin{table}[ht]
 \centering
-\caption{Success Rate Statistics for vTP on IBM Sherbrooke Across Different Gate Count Ranges}
-\label{tab:vtp_success_rates_ibm}
+\caption{Error Rate Statistics for vTP on IBM Sherbrooke Across Different Gate Count Ranges}
+\label{tab:vtp_error_rates_ibm}
 \begin{tabular}{|c|c|c|}
     \hline
-    \textbf{Gate Count Range} & \textbf{Success Rate Range (\%)} & \textbf{Mean (\%)} \\
+    \textbf{Gate Count Range} & \textbf{Error Rate Range (\%)} & \textbf{Mean (\%)} \\
     \hline
-    10 & 2.0--87.4 & 32.7 \\
+    10 & 12.6--98.0 & 67.3 \\
     \hline
-    30 & 2.3--42.6 & 15.5 \\
+    30 & 57.4--97.7 & 84.5 \\
     \hline
-    50 & 2.1--17.8 & 7.3 \\
+    50 & 82.2--97.9 & 92.7 \\
     \hline
-    70 & 2.1--12.5 & 5.0 \\
+    70 & 87.5--97.9 & 95.0 \\
     \hline
-    200 & 2.0--73.3 & 25.9 \\
+    200 & 26.7--98.0 & 74.1 \\
     \hline
-    500 & 5.1--64.0 & 23.5 \\
+    500 & 36.0--94.9 & 76.5 \\
     \hline
-    1,000 & 5.8--48.7 & 23.4 \\
+    1,000 & 51.3--94.2 & 76.6 \\
     \hline
-    1,500 & 5.4--53.1 & 24.0 \\
+    1,500 & 46.9--94.6 & 76.0 \\
     \hline
-    3,000 & 5.1--53.1 & 25.6 \\
+    3,000 & 46.9--94.9 & 74.4 \\
     \hline
-    5,000 & 5.7--53.8 & 24.6 \\
+    5,000 & 46.2--94.3 & 75.4 \\
     \hline
-    10,000 & 5.6--50.4 & 23.5 \\
+    10,000 & 49.6--94.4 & 76.5 \\
     \hline
-    20,000 & 3.7--52.9 & 22.9 \\
+    20,000 & 47.1--96.3 & 77.1 \\
     \hline
 \end{tabular}
 \end{table}
 
 \begin{table}[ht]
 \centering
-\caption{Success Rate Statistics for vTP on Rigetti Ankaa-3 Across Different Gate Count Ranges}
-\label{tab:vtp_success_rates_rigetti}
+\caption{Error Rate Statistics for vTP on Rigetti Ankaa-3 Across Different Gate Count Ranges}
+\label{tab:vtp_error_rates_rigetti}
 \begin{tabular}{|c|c|c|}
     \hline
-    \textbf{Gate Count Range} & \textbf{Success Rate Range (\%)} & \textbf{Mean (\%)} \\
+    \textbf{Gate Count Range} & \textbf{Error Rate Range (\%)} & \textbf{Mean (\%)} \\
     \hline
-    10 & 0.0--90.0 & 52.2 \\
+    10 & 10.0--100.0 & 47.8 \\
     \hline
-    30 & 0.0--60.0 & 24.3 \\
+    30 & 40.0--100.0 & 75.7 \\
     \hline
-    50 & 0.0--40.0 & 10.8 \\
+    50 & 60.0--100.0 & 89.2 \\
     \hline
-    70 & 0.0--30.0 & 8.3 \\
+    70 & 70.0--100.0 & 91.7 \\
     \hline
-    500 & 0.0--90.0 & 40.8 \\
+    500 & 10.0--100.0 & 59.2 \\
     \hline
-    2,000 & 10.0 & 10.0 \\
-    \hline
-    5,000 & 10.0--90.0 & 39.5 \\
+    5,000 & 10.0--90.0 & 60.5 \\
     \hline
 \end{tabular}
 \end{table}
 
-In figure~\ref{fig:random_gates_success_rate} the boxplots represent success rate distributions across different gate count ranges; IBM Sherbrooke shows consistent performance while Rigetti Ankaa-3 exhibits high variability, particularly for circuits with fewer than 30 gates. Although data dispersion varies significantly between hardware platforms, the platform choice itself has a more dominant effect on the success rate than the number of random single-qubit gates, with IBM maintaining stable performance across all tested ranges, while Rigetti shows unreliable results.
+Tables~\ref{tab:vtp_error_rates_ibm} and~\ref{tab:vtp_error_rates_rigetti} summarize the error rate statistics for vTP after executing circuits with different gate count ranges in IBM Sherbrooke and Rigetti Ankaa-3, respectively, while Figure~\ref{fig:random_gates_error_rate} presents the same data visually through boxplots. As can be seen, the mean error rate by grouping the data using gate counts produces high error rates in both platforms; however, it should be noted that some of the jobs in each group produce lower error rates like 12.6\% for IBM Sherbrooke and 10.0\% for Rigetti Ankaa-3, which give us a hint to explore data with another level of grouping.
 
 \begin{figure}[ht]
     \centering
-    \includegraphics[width=1\linewidth]{4_success_rate_vs_gates_grouped_boxplot_filtered.png}
-    \caption{Box plot comparison of vTP success rates against the number of random single-qubit gates applied to the payload, classified by quantum hardware platform. Each box shows the interquartile range with median (solid line) and mean (dashed line) for each gate count range.}
-    \label{fig:random_gates_success_rate}
+    \includegraphics[width=1\linewidth]{img/2b_error_rate_vs_gates_grouped_boxplot_filtered.png}
+    \caption{Box plot comparison of vTP error rates against the number of random single-qubit gates applied to the payload, classified by quantum hardware platform. Each box shows the interquartile range with median (solid line) and mean (dashed line) for each gate count range.}
+    \label{fig:random_gates_error_rate}
 \end{figure}
 
-Based on these results, we concluded that the success rate was not significantly affected by the number of unitary operations applied to a single qubit in the payload for IBM hardware, probably due to circuit optimization by the runtime service prior to execution, even when transpilation is set to optimization level~0. However, Rigetti's highly variable performance suggests platform-specific limitations that affect reliability regardless of gate count. This interpretation was reinforced by the observation that IBM's execution time remained relatively constant throughout the experiment while maintaining consistent success rates. The data is available at \url{https://github.com/xthecapx/qc_experiment/tree/main/experiment/ieee_analysis}."
+Figure~\ref{fig:error_rate_gates_by_payload} presents a segmented analysis that separates the data by payload size for both platforms. This analysis reveals that the payload size is the dominant factor that influences the error rate and, at the same time, makes clear that the gate count has only a modest effect (10 - 20\%) in the error rate within each category. For instance, on IBM, circuits with 1-qubit payloads maintain relatively low error rates (\textasciitilde40-50\%) regardless of gate count, while 5-qubit payloads consistently exhibit high error rates (\textasciitilde95\%) across all experiments.
 
-Based on these results, we concluded that the success rate was not significantly affected by the number of unitary operations applied to a single qubit in the payload for IBM hardware, but there are some limitations on the amount of single-qubit gates in Rigetti that perform worse when the number of gates increases.
-
-To investigate this counterintuitive finding, we conducted a supplementary analysis comparing the original circuit metrics with their ISA (Instruction Set Architecture) equivalents at optimization level~0. This analysis revealed that transpilation substantially increases circuit complexity: depth increases by 50--1600\%, width expands by 567--1367\% to accommodate physical qubit mapping, and total gate count grows by 50--1700\%. These findings indicate that the minimal impact of the logical gate count on the success rate is not due to circuit optimization that reduces complexity, but rather because the transpilation overhead dominates the final circuit characteristics, making the original gate count a poor predictor of quality attributes. The data is available at \url{https://github.com/xthecapx/qc_experiment/tree/main/experiment/ieee_analysis}.
-
-Table~\ref{tab:transpilation_overhead} summarizes the transpilation overhead observed in different payload sizes. The depth increase is most pronounced for small circuits with larger payloads, reaching up to 16$\times$ for 5-qubit payloads with 10 gates, while stabilizing to approximately 1.5--3$\times$ for circuits with 1000 or more gates. A visual representation of these data is illustrated in Figure~\ref{fig:depth_increase_vs_gates}, showing how the depth increase percentage decreases logarithmically with gate count but remains consistently higher for larger payload sizes. This significant overhead clarifies why increasing the payload by thousands of gates barely affects success rates, as the transpilation process is much more complex than the initial gate operations.
-
-\begin{table}[ht]
-\centering
-\caption{Transpilation Overhead: Circuit Depth Increase by Payload Size at optimization\_level=0}
-\label{tab:transpilation_overhead}
-\begin{tabular}{|c|c|c|}
-    \hline
-    \textbf{Payload Size} & \textbf{Mean Depth Increase (\%)} & \textbf{Range (\%)} \\
-    \hline
-    1 qubit & 86 $\pm$ 64 & 48--300 \\
-    \hline
-    2 qubits & 191 $\pm$ 167 & 111--792 \\
-    \hline
-    3 qubits & 310 $\pm$ 271 & 80--1148 \\
-    \hline
-    4 qubits & 454 $\pm$ 346 & 207--1376 \\
-    \hline
-    5 qubits & 591 $\pm$ 403 & 279--1657 \\
-    \hline
-    \textbf{Overall} & \textbf{326 $\pm$ 330} & \textbf{48--1657} \\
-    \hline
-\end{tabular}
-\end{table}
-
-\begin{figure}[ht]
+\begin{figure*}[ht]
     \centering
-    \includegraphics[width=1\linewidth]{5_depth_increase_vs_gates.png}
-    \caption{Circuit depth increase percentage after ISA transpilation with optimization\_level=0, grouped by payload size. The logarithmic x-axis shows the number of gates in the original circuit. Error bars represent standard deviation across 5 iterations. Smaller circuits experience dramatically higher overhead, with depth increases ranging from 1.5$\times$ for large circuits to 16$\times$ for small circuits with large payloads.}
-    \label{fig:depth_increase_vs_gates}
-\end{figure}
+    \begin{subfigure}[b]{0.48\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{img/2d_error_rate_vs_gates_by_payload_ibm.png}
+        \caption{IBM Sherbrooke}
+        \label{fig:error_rate_gates_by_payload_ibm}
+    \end{subfigure}\hfill
+    \begin{subfigure}[b]{0.48\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{img/2d_error_rate_vs_gates_by_payload_rigetti.png}
+        \caption{Rigetti Ankaa-3}
+        \label{fig:error_rate_gates_by_payload_rigetti}
+    \end{subfigure}
+    \caption{Error rate versus gate count segmented by payload size for IBM Sherbrooke and Rigetti Ankaa-3. Each line represents a different payload size, with shaded regions indicating standard deviation. The x-axis is in Log-scale to enables visualization across the wide gate range tested.}
+    \label{fig:error_rate_gates_by_payload}
+\end{figure*}
 
-In conclusion, the experimental results at this stage corroborate our initial hypothesis (\ref{h1}). The number of single qubit operations demonstrated a minimal impact on the final success rate, even after applying tens of thousands of gates. The significant transpilation overhead that dominates circuit properties is responsible for this result. The runtime process involves mapping logical qubits to the physical layout, inserting SWAP gates for routing, and breaking down operations into native gates. Combined with the inherently high fidelity of single-qubit operations \cite{shuklaCompleteCharacterizationDirectlya_2020}, this transpilation overhead makes the raw count of logical single-qubit gates a poor predictor of post-runtime success.
+The experimental results at this stage corroborate our initial hypothesis (\ref{h1}). As demonstrated by the stratified analysis in Figure~\ref{fig:error_rate_gates_by_payload}, the number of single-qubit gates has only a modest impact on error rates when controlling for payload size, even when applying thousands of gates. This pattern holds consistently across both quantum hardware platforms, demonstrating that the minimal gate count effect is a general characteristic rather than a platform-specific behavior. 
 
+The minimal gate count effect can be attributed to the inherently high fidelity of single-qubit operations \cite{shuklaCompleteCharacterizationDirectlya_2020}, which are highly refined in today's quantum hardware. Data supporting this section can be accessed at \url{https://github.com/xthecapx/qc_experiment/tree/main/experiment/ieee_analysis}.
 
 \subsection{Stage 3: Circuit depth experiment}
 
