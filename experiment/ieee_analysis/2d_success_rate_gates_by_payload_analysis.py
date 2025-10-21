@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 """
-Error Rate vs Gates Stratified by Payload Size
-==============================================
+Success Rate vs Gates Stratified by Payload Size
+================================================
 
 This analysis separates gate count effects by payload size to avoid
 confounding between these two factors.
 
 Critical insight: Previous analysis conflated gate counts across different
 payload sizes, potentially masking the true relationship between gate count
-and error rate.
+and success rate.
 
 Author: Analysis Script
 Date: 2025
@@ -61,9 +61,9 @@ def group_gates_by_range(df, range_size=10):
     return df
 
 
-def plot_error_rate_vs_gates_by_payload(df_ibm, df_rigetti, min_samples=3):
+def plot_success_rate_vs_gates_by_payload(df_ibm, df_rigetti, min_samples=3):
     """
-    Create separate line plots for each payload size showing error rate vs gate count.
+    Create separate line plots for each payload size showing success rate vs gate count.
     Returns two separate figures for IBM and Rigetti (to be arranged in LaTeX).
     """
     # Set font sizes for IEEE format
@@ -86,13 +86,13 @@ def plot_error_rate_vs_gates_by_payload(df_ibm, df_rigetti, min_samples=3):
     # ============ IBM FIGURE ============
     fig_ibm, ax_ibm = plt.subplots(figsize=fig_size)
     
-    df_ibm['error_rate'] = (100 - df_ibm['success_rate']) / 100
+    df_ibm['success_rate_scaled'] = df_ibm['success_rate'] / 100
     df_ibm_grouped = group_gates_by_range(df_ibm, range_size=10)
     
     payload_sizes = sorted(df_ibm['payload_size'].unique())
     
     print("\n" + "=" * 80)
-    print("IBM: Error Rate vs Gate Count by Payload Size")
+    print("IBM: Success Rate vs Gate Count by Payload Size")
     print("=" * 80)
     
     for payload in payload_sizes:
@@ -106,8 +106,8 @@ def plot_error_rate_vs_gates_by_payload(df_ibm, df_rigetti, min_samples=3):
         for gate_group in gate_groups:
             gate_subset = payload_df[payload_df['gate_group'] == gate_group]
             if len(gate_subset) >= min_samples:
-                gate_means.append(gate_subset['error_rate'].mean())
-                gate_stds.append(gate_subset['error_rate'].std())
+                gate_means.append(gate_subset['success_rate_scaled'].mean())
+                gate_stds.append(gate_subset['success_rate_scaled'].std())
                 gate_positions.append(gate_group)
         
         if len(gate_positions) > 0:
@@ -131,13 +131,13 @@ def plot_error_rate_vs_gates_by_payload(df_ibm, df_rigetti, min_samples=3):
             
             print(f"\nPayload {payload}:")
             print(f"  Gate range: {gate_positions.min():.0f} - {gate_positions.max():.0f}")
-            print(f"  Error rate range: {gate_means.min():.3f} - {gate_means.max():.3f}")
-            print(f"  Mean error rate: {gate_means.mean():.3f}")
+            print(f"  Success rate range: {gate_means.min():.3f} - {gate_means.max():.3f}")
+            print(f"  Mean success rate: {gate_means.mean():.3f}")
             print(f"  Number of gate groups: {len(gate_positions)}")
     
     # Style IBM figure (no title for LaTeX)
     ax_ibm.set_xlabel('Number of Gates', fontsize=label_size, fontweight='bold')
-    ax_ibm.set_ylabel('Error Rate', fontsize=label_size, fontweight='bold')
+    ax_ibm.set_ylabel('Success Rate', fontsize=label_size, fontweight='bold')
     ax_ibm.set_xscale('log')
     ax_ibm.set_ylim(-0.15, 1.15)
     ax_ibm.tick_params(axis='both', which='major', labelsize=tick_size)
@@ -146,13 +146,13 @@ def plot_error_rate_vs_gates_by_payload(df_ibm, df_rigetti, min_samples=3):
     
     # ============ RIGETTI FIGURE ============
     fig_rigetti, ax_rigetti = plt.subplots(figsize=fig_size)
-    df_rigetti['error_rate'] = (100 - df_rigetti['success_rate']) / 100
+    df_rigetti['success_rate_scaled'] = df_rigetti['success_rate'] / 100
     df_rigetti_grouped = group_gates_by_range(df_rigetti, range_size=10)
     
     payload_sizes = sorted(df_rigetti['payload_size'].unique())
     
     print("\n" + "=" * 80)
-    print("Rigetti: Error Rate vs Gate Count by Payload Size")
+    print("Rigetti: Success Rate vs Gate Count by Payload Size")
     print("=" * 80)
     
     for payload in payload_sizes:
@@ -166,8 +166,8 @@ def plot_error_rate_vs_gates_by_payload(df_ibm, df_rigetti, min_samples=3):
         for gate_group in gate_groups:
             gate_subset = payload_df[payload_df['gate_group'] == gate_group]
             if len(gate_subset) >= min_samples:
-                gate_means.append(gate_subset['error_rate'].mean())
-                gate_stds.append(gate_subset['error_rate'].std())
+                gate_means.append(gate_subset['success_rate_scaled'].mean())
+                gate_stds.append(gate_subset['success_rate_scaled'].std())
                 gate_positions.append(gate_group)
         
         if len(gate_positions) > 0:
@@ -191,13 +191,13 @@ def plot_error_rate_vs_gates_by_payload(df_ibm, df_rigetti, min_samples=3):
             
             print(f"\nPayload {payload}:")
             print(f"  Gate range: {gate_positions.min():.0f} - {gate_positions.max():.0f}")
-            print(f"  Error rate range: {gate_means.min():.3f} - {gate_means.max():.3f}")
-            print(f"  Mean error rate: {gate_means.mean():.3f}")
+            print(f"  Success rate range: {gate_means.min():.3f} - {gate_means.max():.3f}")
+            print(f"  Mean success rate: {gate_means.mean():.3f}")
             print(f"  Number of gate groups: {len(gate_positions)}")
     
     # Style Rigetti figure (no title for LaTeX)
     ax_rigetti.set_xlabel('Number of Gates', fontsize=label_size, fontweight='bold')
-    ax_rigetti.set_ylabel('Error Rate', fontsize=label_size, fontweight='bold')
+    ax_rigetti.set_ylabel('Success Rate', fontsize=label_size, fontweight='bold')
     ax_rigetti.set_xscale('log')
     ax_rigetti.set_ylim(-0.15, 1.15)
     ax_rigetti.tick_params(axis='both', which='major', labelsize=tick_size)
@@ -213,7 +213,7 @@ def plot_error_rate_vs_gates_by_payload(df_ibm, df_rigetti, min_samples=3):
 def run_stratified_gates_analysis():
     """Main function to run the stratified gates analysis."""
     print("=" * 80)
-    print("ERROR RATE vs GATES STRATIFIED BY PAYLOAD SIZE")
+    print("SUCCESS RATE vs GATES STRATIFIED BY PAYLOAD SIZE")
     print("=" * 80)
     
     # Load data
@@ -228,15 +228,15 @@ def run_stratified_gates_analysis():
     df_rigetti = combined_df[combined_df['hardware'] == 'Rigetti'].copy()
     
     # Generate the stratified plots
-    fig_ibm, fig_rigetti = plot_error_rate_vs_gates_by_payload(df_ibm, df_rigetti, min_samples=3)
+    fig_ibm, fig_rigetti = plot_success_rate_vs_gates_by_payload(df_ibm, df_rigetti, min_samples=3)
     
     # Ensure output directory exists
     output_dir = os.path.join(os.path.dirname(__file__), OUTPUT_DIR)
     os.makedirs(output_dir, exist_ok=True)
     
     # Save both figures separately
-    output_file_ibm = os.path.join(output_dir, '2d_error_rate_vs_gates_by_payload_ibm.png')
-    output_file_rigetti = os.path.join(output_dir, '2d_error_rate_vs_gates_by_payload_rigetti.png')
+    output_file_ibm = os.path.join(output_dir, '2d_success_rate_vs_gates_by_payload_ibm.png')
+    output_file_rigetti = os.path.join(output_dir, '2d_success_rate_vs_gates_by_payload_rigetti.png')
     
     fig_ibm.savefig(output_file_ibm, dpi=300, bbox_inches='tight', facecolor='white')
     fig_rigetti.savefig(output_file_rigetti, dpi=300, bbox_inches='tight', facecolor='white')
@@ -250,4 +250,5 @@ def run_stratified_gates_analysis():
 
 if __name__ == "__main__":
     run_stratified_gates_analysis()
+
 

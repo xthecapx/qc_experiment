@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """
-Error Rate Envelope vs Circuit Depth Analysis
-=============================================
+Success Rate Envelope vs Circuit Depth Analysis
+===============================================
 
 This module creates a scatter plot with mean values and envelope (upper/lower bounds)
-for error rate vs circuit depth, showing the range of variation.
+for success rate vs circuit depth, showing the range of variation.
 
 Similar to plot 1c but for circuit depth instead of payload size.
 
@@ -52,10 +52,10 @@ def group_circuit_depths(df, bin_size=5):
     return df
 
 
-def plot_error_rate_envelope_by_circuit_depth(df1, df2, bin_size=5):
+def plot_success_rate_envelope_by_circuit_depth(df1, df2, bin_size=5):
     """
     Create a scatter plot with mean values and envelope lines showing
-    the upper and lower bounds of error rate by circuit depth.
+    the upper and lower bounds of success rate by circuit depth.
     
     Parameters:
     -----------
@@ -76,11 +76,9 @@ def plot_error_rate_envelope_by_circuit_depth(df1, df2, bin_size=5):
     # Create figure
     fig, ax = plt.subplots(figsize=fig_size)
     
-    # Calculate error rate for both datasets
+    # Work directly with success rate
     df1 = df1.copy()
     df2 = df2.copy()
-    df1['error_rate'] = 1 - df1['success_rate']
-    df2['error_rate'] = 1 - df2['success_rate']
     
     # Group circuit depths into bins
     df1_grouped = group_circuit_depths(df1, bin_size)
@@ -100,12 +98,12 @@ def plot_error_rate_envelope_by_circuit_depth(df1, df2, bin_size=5):
     for depth_group in depth_groups:
         subset = df1_grouped[df1_grouped['depth_group'] == depth_group]
         if len(subset) > 0:
-            ibm_means.append(subset['error_rate'].mean())
-            ibm_mins.append(subset['error_rate'].min())
-            ibm_maxs.append(subset['error_rate'].max())
+            ibm_means.append(subset['success_rate'].mean())
+            ibm_mins.append(subset['success_rate'].min())
+            ibm_maxs.append(subset['success_rate'].max())
             ibm_valid_depths.append(depth_group)
-            print(f"IBM Depth {depth_group}-{depth_group+bin_size-1}: mean={subset['error_rate'].mean():.3f}, "
-                  f"min={subset['error_rate'].min():.3f}, max={subset['error_rate'].max():.3f}, n={len(subset)}")
+            print(f"IBM Depth {depth_group}-{depth_group+bin_size-1}: mean={subset['success_rate'].mean():.3f}, "
+                  f"min={subset['success_rate'].min():.3f}, max={subset['success_rate'].max():.3f}, n={len(subset)}")
     
     # Calculate statistics for Rigetti
     rigetti_means = []
@@ -116,12 +114,12 @@ def plot_error_rate_envelope_by_circuit_depth(df1, df2, bin_size=5):
     for depth_group in depth_groups:
         subset = df2_grouped[df2_grouped['depth_group'] == depth_group]
         if len(subset) > 0:
-            rigetti_means.append(subset['error_rate'].mean())
-            rigetti_mins.append(subset['error_rate'].min())
-            rigetti_maxs.append(subset['error_rate'].max())
+            rigetti_means.append(subset['success_rate'].mean())
+            rigetti_mins.append(subset['success_rate'].min())
+            rigetti_maxs.append(subset['success_rate'].max())
             rigetti_valid_depths.append(depth_group)
-            print(f"Rigetti Depth {depth_group}-{depth_group+bin_size-1}: mean={subset['error_rate'].mean():.3f}, "
-                  f"min={subset['error_rate'].min():.3f}, max={subset['error_rate'].max():.3f}, n={len(subset)}")
+            print(f"Rigetti Depth {depth_group}-{depth_group+bin_size-1}: mean={subset['success_rate'].mean():.3f}, "
+                  f"min={subset['success_rate'].min():.3f}, max={subset['success_rate'].max():.3f}, n={len(subset)}")
     
     # Convert to numpy arrays
     ibm_valid_depths = np.array(ibm_valid_depths)
@@ -172,7 +170,7 @@ def plot_error_rate_envelope_by_circuit_depth(df1, df2, bin_size=5):
     
     # Set axis labels
     ax.set_xlabel('Circuit Depth', fontsize=label_size, fontweight='bold')
-    ax.set_ylabel('Mean Error Rate', fontsize=label_size, fontweight='bold')
+    ax.set_ylabel('Mean Success Rate', fontsize=label_size, fontweight='bold')
     
     # Set x-axis ticks and labels
     # Use the bin start values as tick positions
@@ -198,12 +196,12 @@ def plot_error_rate_envelope_by_circuit_depth(df1, df2, bin_size=5):
     return plt
 
 
-def run_error_rate_envelope_circuit_depth_analysis():
+def run_success_rate_envelope_circuit_depth_analysis():
     """
-    Main function to run the error rate envelope circuit depth analysis.
+    Main function to run the success rate envelope circuit depth analysis.
     """
     print("=" * 60)
-    print("ERROR RATE ENVELOPE vs CIRCUIT DEPTH ANALYSIS")
+    print("SUCCESS RATE ENVELOPE vs CIRCUIT DEPTH ANALYSIS")
     print("=" * 60)
     
     # Load combined datasets
@@ -213,12 +211,6 @@ def run_error_rate_envelope_circuit_depth_analysis():
         print(f"Error loading datasets: {e}")
         return
     
-    # Calculate error rates
-    df1 = df1.copy()
-    df2 = df2.copy()
-    df1['error_rate'] = 1 - df1['success_rate']
-    df2['error_rate'] = 1 - df2['success_rate']
-    
     # Print dataset statistics
     print("\n" + "=" * 40)
     print("DATASET STATISTICS")
@@ -227,28 +219,28 @@ def run_error_rate_envelope_circuit_depth_analysis():
     print(f"\nIBM Dataset:")
     print(f"  Total experiments: {len(df1)}")
     print(f"  Circuit depth range: {df1['circuit_depth'].min()} - {df1['circuit_depth'].max()}")
-    print(f"  Error rate range: {df1['error_rate'].min():.3f} - {df1['error_rate'].max():.3f}")
-    print(f"  Mean error rate: {df1['error_rate'].mean():.3f}")
+    print(f"  Success rate range: {df1['success_rate'].min():.3f} - {df1['success_rate'].max():.3f}")
+    print(f"  Mean success rate: {df1['success_rate'].mean():.3f}")
     
     print(f"\nRigetti Dataset:")
     print(f"  Total experiments: {len(df2)}")
     print(f"  Circuit depth range: {df2['circuit_depth'].min()} - {df2['circuit_depth'].max()}")
-    print(f"  Error rate range: {df2['error_rate'].min():.3f} - {df2['error_rate'].max():.3f}")
-    print(f"  Mean error rate: {df2['error_rate'].mean():.3f}")
+    print(f"  Success rate range: {df2['success_rate'].min():.3f} - {df2['success_rate'].max():.3f}")
+    print(f"  Mean success rate: {df2['success_rate'].mean():.3f}")
     
     # Generate the envelope plot
     print("\n" + "=" * 40)
     print("GENERATING ENVELOPE PLOT")
     print("=" * 40)
     
-    plt_obj = plot_error_rate_envelope_by_circuit_depth(df1, df2, bin_size=5)
+    plt_obj = plot_success_rate_envelope_by_circuit_depth(df1, df2, bin_size=5)
     
     # Ensure output directory exists
     output_dir = os.path.join(os.path.dirname(__file__), OUTPUT_DIR)
     os.makedirs(output_dir, exist_ok=True)
     
     # Save the plot
-    output_file = os.path.join(output_dir, '3c_error_rate_envelope_vs_circuit_depth.png')
+    output_file = os.path.join(output_dir, '3c_success_rate_envelope_vs_circuit_depth.png')
     plt_obj.savefig(output_file, dpi=300, bbox_inches='tight', facecolor='white')
     
     print(f"✓ Saved: {output_file}")
@@ -259,5 +251,6 @@ def run_error_rate_envelope_circuit_depth_analysis():
 
 if __name__ == "__main__":
     # Run the analysis
-    run_error_rate_envelope_circuit_depth_analysis()
+    run_success_rate_envelope_circuit_depth_analysis()
+
 

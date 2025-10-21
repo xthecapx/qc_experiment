@@ -75,7 +75,7 @@ These benchmarking methods provide detailed information on quantum states and op
 
 Cycle benchmarking is a protocol that repeatedly applies quantum gates to amplify and characterize errors in a quantum system \cite{malhotraSystematicReviewQuantum_2024}. This approach allows for systematic analysis of errors in quantum circuits. The method is particularly useful for understanding how errors affect circuit success rates, as it provides a direct measurement of error rates by repeatedly applying the same gates to a qubit \cite{knillRandomizedBenchmarkingQuantum2008_2008}.
 
-Considering the nature of understanding system errors, our study integrates cycle benchmarking methodologies. Specifically, we include gates operations on each qubit included in the payload of the designed protocol to determine the success and error rates for each experiment. See Section \nameref{sec:vtp} for more details about the protocol.
+Considering the nature of understanding system errors, our study integrates cycle benchmarking methodologies. Specifically, we include gates operations on each qubit included in the payload of the designed protocol to determine the success rate for each experiment. See Section \nameref{sec:vtp} for more details about the protocol.
 
 \subsubsection{Miscellaneous Approaches:}
 
@@ -107,9 +107,9 @@ A rate of 1.0 indicates that every execution produced the correct all-zero state
 
 \subsubsection{Benchmarking Strategy}
 
-The primary objective of this experiment is to identify pre-runtime metrics that exhibit a correlation with the success/error rate. To this end, our strategy integrates elements of randomization and cycle benchmarking to assess the success rate of transmitting a quantum state across the circuit. This is accomplished by employing RB within the payload to generate messages, thereby repeatedly applying quantum gates to intentionally amplify errors. The success/error rate is finally determined by executing the conjugate operation prior to measurement with the aim of obtaining a result of zero from the measured qubit.
+The primary objective of this experiment is to identify pre-runtime metrics that exhibit a correlation with the success rate. To this end, our strategy integrates elements of randomization and cycle benchmarking to assess the success rate of transmitting a quantum state across the circuit. This is accomplished by employing RB within the payload to generate messages, thereby repeatedly applying quantum gates to intentionally amplify errors. The success rate is finally determined by executing the conjugate operation prior to measurement with the aim of obtaining a result of zero from the measured qubit.
 
-The experimentation phase was structured into three distinct tests: (1) a stress test involving the use of N random gates to serve as the message; (2) a strategy to maintain a specified circuit depth; and (3) an evaluation of how success/error rates scale with an increasing number of qubits. Details about each experiment are presented in Section \ref{sec:experiment}.
+The experimentation phase was structured into three distinct tests: (1) a stress test involving the use of N random gates to serve as the message; (2) a strategy to maintain a specified circuit depth; and (3) an evaluation of how success rates scale with an increasing number of qubits. Details about each experiment are presented in Section \ref{sec:experiment}.
 
 \subsection{The teleportation protocol}
 \label{sec:tp}

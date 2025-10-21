@@ -3,7 +3,7 @@
 Payload Size Boxplot Analysis
 =============================
 
-This module creates boxplot visualizations showing error rate distribution by payload size
+This module creates boxplot visualizations showing success rate distribution by payload size
 for combined datasets (IBM and AWS/Rigetti). Focuses on data distribution without circuit depth
 coloring or trend analysis.
 
@@ -33,9 +33,9 @@ OUTPUT_DIR = 'img'
 
 
 
-def plot_error_rate_vs_payload_size_combined_boxplot(df1, df2):
+def plot_success_rate_vs_payload_size_combined_boxplot(df1, df2):
     """
-    Create boxplots showing error rate distribution vs payload size for both datasets
+    Create boxplots showing success rate distribution vs payload size for both datasets
     Focuses on data distribution without circuit depth coloring or trend analysis
     
     Parameters:
@@ -55,18 +55,16 @@ def plot_error_rate_vs_payload_size_combined_boxplot(df1, df2):
     # Create figure
     fig, ax = plt.subplots(figsize=fig_size)
     
-    # Calculate error rate for both datasets
+    # Work directly with success rate
     df1 = df1.copy()
     df2 = df2.copy()
-    df1['error_rate'] = 1 - df1['success_rate']
-    df2['error_rate'] = 1 - df2['success_rate']
     
-    # Filter out rows with 0 error rate (likely data errors)
-    df1_filtered = df1[df1['error_rate'] > 0].copy()
-    df2_filtered = df2[df2['error_rate'] > 0].copy()
+    # Filter out rows with 0 success rate (likely data errors)
+    df1_filtered = df1[df1['success_rate'] > 0].copy()
+    df2_filtered = df2[df2['success_rate'] > 0].copy()
     
-    print(f"IBM data: {len(df1)} total, {len(df1_filtered)} after filtering zero error rates")
-    print(f"Rigetti data: {len(df2)} total, {len(df2_filtered)} after filtering zero error rates")
+    print(f"IBM data: {len(df1)} total, {len(df1_filtered)} after filtering zero success rates")
+    print(f"Rigetti data: {len(df2)} total, {len(df2_filtered)} after filtering zero success rates")
     
     # Get unique payload sizes (assuming both datasets have the same range)
     payload_sizes = sorted(df1_filtered['payload_size'].unique())
@@ -78,11 +76,11 @@ def plot_error_rate_vs_payload_size_combined_boxplot(df1, df2):
     
     for payload_size in payload_sizes:
         # IBM data for this payload size (filtered)
-        ibm_subset = df1_filtered[df1_filtered['payload_size'] == payload_size]['error_rate']
+        ibm_subset = df1_filtered[df1_filtered['payload_size'] == payload_size]['success_rate']
         ibm_data.append(ibm_subset.values)
         
         # Rigetti data for this payload size (filtered)
-        rigetti_subset = df2_filtered[df2_filtered['payload_size'] == payload_size]['error_rate']
+        rigetti_subset = df2_filtered[df2_filtered['payload_size'] == payload_size]['success_rate']
         rigetti_data.append(rigetti_subset.values)
         
         print(f"Payload {payload_size}: IBM {len(ibm_subset)} samples, Rigetti {len(rigetti_subset)} samples")
@@ -106,7 +104,7 @@ def plot_error_rate_vs_payload_size_combined_boxplot(df1, df2):
     
     # Set axis labels
     ax.set_xlabel('Payload Size', fontsize=label_size, fontweight='bold')
-    ax.set_ylabel('Error Rate', fontsize=label_size, fontweight='bold')
+    ax.set_ylabel('Success Rate', fontsize=label_size, fontweight='bold')
     
     # Set x-axis ticks and labels with padding
     ax.set_xticks(payload_sizes)
@@ -177,14 +175,14 @@ def run_payload_size_boxplot_analysis():
     print("GENERATING BOXPLOT")
     print("=" * 40)
     
-    plt_obj, data_meta = plot_error_rate_vs_payload_size_combined_boxplot(df1, df2)
+    plt_obj, data_meta = plot_success_rate_vs_payload_size_combined_boxplot(df1, df2)
     
     # Ensure output directory exists
     output_dir = os.path.join(os.path.dirname(__file__), OUTPUT_DIR)
     os.makedirs(output_dir, exist_ok=True)
     
     # Save the plot
-    output_file = os.path.join(output_dir, '1b_error_rate_vs_payload_size_combined_boxplot.png')
+    output_file = os.path.join(output_dir, '1b_success_rate_vs_payload_size_combined_boxplot.png')
     plt_obj.savefig(output_file, dpi=300, bbox_inches='tight', facecolor='white')
     
     print(f"✓ Saved: {output_file}")
@@ -207,3 +205,4 @@ def run_payload_size_boxplot_analysis():
 if __name__ == "__main__":
     # Run the analysis
     run_payload_size_boxplot_analysis()
+

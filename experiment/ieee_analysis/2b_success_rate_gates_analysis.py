@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """
-Error Rate vs Number of Gates Analysis
-======================================
+Success Rate vs Number of Gates Analysis
+========================================
 
-This module creates boxplot visualizations showing error rate distributions
+This module creates boxplot visualizations showing success rate distributions
 by number of gates for different hardware platforms (IBM and Rigetti).
 
-Complement to plot 2 (same data, showing error rate instead of success rate).
+Complement to plot 2 (same data, showing success rate).
 
 Author: Analysis Script
 Date: 2025
@@ -60,9 +60,9 @@ def group_gates_by_range(df, range_size=10):
     return df
 
 
-def plot_error_rate_vs_gates_boxplot(df, group_spacing=0.5, min_samples=5):
+def plot_success_rate_vs_gates_boxplot(df, group_spacing=0.5, min_samples=5):
     """
-    Create boxplots showing error rate distributions by number of gates and hardware platform.
+    Create boxplots showing success rate distributions by number of gates and hardware platform.
     """
     # Set font sizes for IEEE format
     title_size = TITLE_SIZE
@@ -71,9 +71,9 @@ def plot_error_rate_vs_gates_boxplot(df, group_spacing=0.5, min_samples=5):
     legend_size = LEGEND_SIZE
     fig_size = FIG_SIZE
     
-    # Calculate error rate
+    # Use success rate directly
     df = df.copy()
-    df['error_rate'] = (100 - df['success_rate']) / 100  # Convert to 0-1 scale
+    df['success_rate_scaled'] = df['success_rate'] / 100  # Convert to 0-1 scale
     
     # Group gates into ranges
     df_grouped = group_gates_by_range(df, range_size=10)
@@ -112,7 +112,7 @@ def plot_error_rate_vs_gates_boxplot(df, group_spacing=0.5, min_samples=5):
             
             # Filter: only include if we have at least min_samples
             if len(hw_data) >= min_samples:
-                boxplot_data.append(hw_data['error_rate'].values)
+                boxplot_data.append(hw_data['success_rate_scaled'].values)
                 positions.append(pos_counter)
                 colors.append(COLORBREWER_PALETTE.get(hardware, '#gray'))
                 pos_counter += 1
@@ -156,7 +156,7 @@ def plot_error_rate_vs_gates_boxplot(df, group_spacing=0.5, min_samples=5):
     
     # Set labels and formatting
     ax.set_xlabel('Number of Gates by Hardware Platform', fontsize=label_size, fontweight='bold')
-    ax.set_ylabel('Error Rate', fontsize=label_size, fontweight='bold')
+    ax.set_ylabel('Success Rate', fontsize=label_size, fontweight='bold')
     
     # Set x-axis ticks and labels
     ax.set_xticks(gate_group_positions)
@@ -164,7 +164,7 @@ def plot_error_rate_vs_gates_boxplot(df, group_spacing=0.5, min_samples=5):
     
     # Set y-axis formatting
     ax.tick_params(axis='y', labelsize=tick_size)
-    ax.set_ylim(-0.15, 1.15)  # Error rate with padding
+    ax.set_ylim(-0.15, 1.15)  # Success rate with padding
     
     # Add grid
     ax.grid(True, alpha=0.3, axis='y')
@@ -180,10 +180,10 @@ def plot_error_rate_vs_gates_boxplot(df, group_spacing=0.5, min_samples=5):
     return plt
 
 
-def run_error_rate_gates_analysis():
-    """Main function to run the error rate vs gates analysis."""
+def run_success_rate_gates_analysis():
+    """Main function to run the success rate vs gates analysis."""
     print("=" * 60)
-    print("ERROR RATE vs NUMBER OF GATES ANALYSIS")
+    print("SUCCESS RATE vs NUMBER OF GATES ANALYSIS")
     print("=" * 60)
     
     # Load combined data
@@ -192,9 +192,6 @@ def run_error_rate_gates_analysis():
     if combined_df.empty:
         print("No data available for analysis.")
         return
-    
-    # Calculate error rate
-    combined_df['error_rate'] = (100 - combined_df['success_rate']) / 100
     
     # Group data for statistics
     combined_df_grouped = group_gates_by_range(combined_df, range_size=10)
@@ -209,22 +206,22 @@ def run_error_rate_gates_analysis():
         print(f"\n{hardware} Statistics:")
         print(f"  Total experiments: {len(hw_data)}")
         print(f"  Gate range: {hw_data['num_gates'].min()} - {hw_data['num_gates'].max()}")
-        print(f"  Error rate range: {hw_data['error_rate'].min():.2f}% - {hw_data['error_rate'].max():.2f}%")
-        print(f"  Mean error rate: {hw_data['error_rate'].mean():.2f}%")
+        print(f"  Success rate range: {hw_data['success_rate'].min():.2f}% - {hw_data['success_rate'].max():.2f}%")
+        print(f"  Mean success rate: {hw_data['success_rate'].mean():.2f}%")
     
     # Generate the boxplot
     print("\n" + "=" * 40)
     print("GENERATING BOXPLOT")
     print("=" * 40)
     
-    plt_obj = plot_error_rate_vs_gates_boxplot(combined_df, group_spacing=0.06, min_samples=5)
+    plt_obj = plot_success_rate_vs_gates_boxplot(combined_df, group_spacing=0.06, min_samples=5)
     
     # Ensure output directory exists
     output_dir = os.path.join(os.path.dirname(__file__), OUTPUT_DIR)
     os.makedirs(output_dir, exist_ok=True)
     
     # Save the plot
-    output_file = os.path.join(output_dir, '2b_error_rate_vs_gates_grouped_boxplot_filtered.png')
+    output_file = os.path.join(output_dir, '2b_success_rate_vs_gates_grouped_boxplot_filtered.png')
     plt_obj.savefig(output_file, dpi=300, bbox_inches='tight', facecolor='white')
     
     print(f"Plot saved to: {output_file}")
@@ -234,5 +231,6 @@ def run_error_rate_gates_analysis():
 
 
 if __name__ == "__main__":
-    run_error_rate_gates_analysis()
+    run_success_rate_gates_analysis()
+
 

@@ -10,8 +10,8 @@ Based on our preliminary review of quantum runtime services, we formulate the fo
 
 \begin{itemize}
 \item \label{h1} \textbf{H1:} The number of single qubit gates will have a minimal impact on the final success rate.
-\item \label{h2} \textbf{H2:} There exists a positive correlation between the depth of the circuit and the error rate.
-\item \label{h3} \textbf{H3:} The payload size emerges as a significant factor correlated with the error rate.
+\item \label{h2} \textbf{H2:} There exists a negative correlation between the depth of the circuit and the success rate.
+\item \label{h3} \textbf{H3:} The payload size emerges as a significant factor correlated with the success rate.
 \end{itemize}
 
 \subsection{Stage 1: Preparation}
@@ -69,104 +69,100 @@ It should be noted that for this experiment, we considered the inclusion of rand
 
 \begin{table}[ht]
 \centering
-\caption{Error Rate Statistics for vTP on IBM Sherbrooke Across Different Gate Count Ranges}
-\label{tab:vtp_error_rates_ibm}
+\caption{Success Rate Statistics for vTP on IBM Sherbrooke Across Different Gate Count Ranges}
+\label{tab:vtp_success_rates_ibm}
 \begin{tabular}{|c|c|c|}
     \hline
-    \textbf{Gate Count Range} & \textbf{Error Rate Range (\%)} & \textbf{Mean (\%)} \\
+    \textbf{Gate Count Range} & \textbf{Success Rate Range (\%)} & \textbf{Mean (\%)} \\
     \hline
-    10 & 12.6--98.0 & 67.3 \\
+    10 & 2.0--87.4 & 32.7 \\
     \hline
-    30 & 57.4--97.7 & 84.5 \\
+    30 & 2.3--42.6 & 15.5 \\
     \hline
-    50 & 82.2--97.9 & 92.7 \\
+    50 & 2.1--17.8 & 7.3 \\
     \hline
-    70 & 87.5--97.9 & 95.0 \\
+    70 & 2.1--12.5 & 5.0 \\
     \hline
-    200 & 26.7--98.0 & 74.1 \\
+    200 & 2.0--73.3 & 25.9 \\
     \hline
-    500 & 36.0--94.9 & 76.5 \\
+    500 & 5.1--64.0 & 23.5 \\
     \hline
-    1,000 & 51.3--94.2 & 76.6 \\
+    1,000 & 5.8--48.7 & 23.4 \\
     \hline
-    1,500 & 46.9--94.6 & 76.0 \\
+    1,500 & 5.4--53.1 & 24.0 \\
     \hline
-    3,000 & 46.9--94.9 & 74.4 \\
+    3,000 & 5.1--53.1 & 25.6 \\
     \hline
-    5,000 & 46.2--94.3 & 75.4 \\
+    5,000 & 5.7--53.8 & 24.6 \\
     \hline
-    10,000 & 49.6--94.4 & 76.5 \\
+    10,000 & 5.6--50.4 & 23.5 \\
     \hline
-    20,000 & 47.1--96.3 & 77.1 \\
+    20,000 & 3.7--52.9 & 22.9 \\
     \hline
 \end{tabular}
 \end{table}
 
 \begin{table}[ht]
 \centering
-\caption{Error Rate Statistics for vTP on Rigetti Ankaa-3 Across Different Gate Count Ranges}
-\label{tab:vtp_error_rates_rigetti}
+\caption{Success Rate Statistics for vTP on Rigetti Ankaa-3 Across Different Gate Count Ranges}
+\label{tab:vtp_success_rates_rigetti}
 \begin{tabular}{|c|c|c|}
     \hline
-    \textbf{Gate Count Range} & \textbf{Error Rate Range (\%)} & \textbf{Mean (\%)} \\
+    \textbf{Gate Count Range} & \textbf{Success Rate Range (\%)} & \textbf{Mean (\%)} \\
     \hline
-    10 & 10.0--100.0 & 47.8 \\
+    10 & 0.0--90.0 & 52.2 \\
     \hline
-    30 & 40.0--100.0 & 75.7 \\
+    30 & 0.0--60.0 & 24.3 \\
     \hline
-    50 & 60.0--100.0 & 89.2 \\
+    50 & 0.0--40.0 & 10.8 \\
     \hline
-    70 & 70.0--100.0 & 91.7 \\
+    70 & 0.0--30.0 & 8.3 \\
     \hline
-    500 & 10.0--100.0 & 59.2 \\
+    500 & 0.0--90.0 & 40.8 \\
     \hline
-    5,000 & 10.0--90.0 & 60.5 \\
+    5,000 & 10.0--90.0 & 39.5 \\
     \hline
 \end{tabular}
 \end{table}
 
-Tables~\ref{tab:vtp_error_rates_ibm} and~\ref{tab:vtp_error_rates_rigetti} summarize the error rate statistics for vTP after executing circuits with different gate count ranges in IBM Sherbrooke and Rigetti Ankaa-3, respectively, while Figure~\ref{fig:random_gates_error_rate} presents the same data visually through boxplots. As can be seen, the mean error rate by grouping the data using gate counts produces high error rates in both platforms; however, it should be noted that some of the jobs in each group produce lower error rates like 12.6\% for IBM Sherbrooke and 10.0\% for Rigetti Ankaa-3, which give us a hint to explore data with another level of grouping.
+Tables~\ref{tab:vtp_success_rates_ibm} and~\ref{tab:vtp_success_rates_rigetti} summarize the success rate statistics for vTP after executing circuits with different gate count ranges in IBM Sherbrooke and Rigetti Ankaa-3, respectively, while Figure~\ref{fig:random_gates_success_rate} presents the same data visually through boxplots. As can be seen, grouping the data by gate counts produces low mean success rates in both platforms; however, it should be noted that some of the jobs in each group achieve higher success rates such as 87.4\% for IBM Sherbrooke and 90.0\% for Rigetti Ankaa-3, which give us a hint to explore data with another level of grouping.
 
 \begin{figure}[ht]
     \centering
-    \includegraphics[width=1\linewidth]{img/2b_error_rate_vs_gates_grouped_boxplot_filtered.png}
-    \caption{Box plot comparison of vTP error rates against the number of random single-qubit gates applied to the payload, classified by quantum hardware platform. Each box shows the interquartile range with median (solid line) and mean (dashed line) for each gate count range.}
-    \label{fig:random_gates_error_rate}
+    \includegraphics[width=1\linewidth]{img/2b_success_rate_vs_gates_grouped_boxplot_filtered.png}
+    \caption{Box plot comparison of vTP success rates against the number of random single-qubit gates applied to the payload, classified by quantum hardware platform. Each box shows the interquartile range with median (solid line) and mean (dashed line) for each gate count range.}
+    \label{fig:random_gates_success_rate}
 \end{figure}
 
-Figure~\ref{fig:error_rate_gates_by_payload} presents a segmented analysis that separates the data by payload size for both platforms. This analysis reveals that the payload size is the dominant factor that influences the error rate and, at the same time, makes clear that the gate count has only a modest effect (10 - 20\%) in the error rate within each category. For instance, on IBM, circuits with 1-qubit payloads maintain relatively low error rates (\textasciitilde40-50\%) regardless of gate count, while 5-qubit payloads consistently exhibit high error rates (\textasciitilde95\%) across all experiments.
+Figure~\ref{fig:success_rate_gates_by_payload} presents a segmented analysis that separates the data by payload size for both platforms. This analysis reveals that the payload size is the dominant factor that influences the success rate and, at the same time, makes clear that the gate count has only a modest effect (10 - 20\%) in the success rate within each category. For instance, on IBM, circuits with 1-qubit payloads maintain relatively high success rates (\textasciitilde50-60\%) regardless of gate count, while 5-qubit payloads consistently exhibit low success rates (\textasciitilde5\%) across all experiments.
 
 \begin{figure*}[ht]
     \centering
     \begin{subfigure}[b]{0.48\textwidth}
         \centering
-        \includegraphics[width=\linewidth]{img/2d_error_rate_vs_gates_by_payload_ibm.png}
+        \includegraphics[width=\linewidth]{img/2d_success_rate_vs_gates_by_payload_ibm.png}
         \caption{IBM Sherbrooke}
-        \label{fig:error_rate_gates_by_payload_ibm}
+        \label{fig:success_rate_gates_by_payload_ibm}
     \end{subfigure}\hfill
     \begin{subfigure}[b]{0.48\textwidth}
         \centering
-        \includegraphics[width=\linewidth]{img/2d_error_rate_vs_gates_by_payload_rigetti.png}
+        \includegraphics[width=\linewidth]{img/2d_success_rate_vs_gates_by_payload_rigetti.png}
         \caption{Rigetti Ankaa-3}
-        \label{fig:error_rate_gates_by_payload_rigetti}
+        \label{fig:success_rate_gates_by_payload_rigetti}
     \end{subfigure}
-    \caption{Error rate versus gate count segmented by payload size for IBM Sherbrooke and Rigetti Ankaa-3. Each line represents a different payload size, with shaded regions indicating standard deviation. The x-axis is in Log-scale to enables visualization across the wide gate range tested.}
-    \label{fig:error_rate_gates_by_payload}
+    \caption{Success rate versus gate count segmented by payload size for IBM Sherbrooke and Rigetti Ankaa-3. Each line represents a different payload size, with shaded regions indicating standard deviation. The x-axis is in Log-scale to enables visualization across the wide gate range tested.}
+    \label{fig:success_rate_gates_by_payload}
 \end{figure*}
 
-The experimental results at this stage corroborate our initial hypothesis (\ref{h1}). As demonstrated by the stratified analysis in Figure~\ref{fig:error_rate_gates_by_payload}, the number of single-qubit gates has only a modest impact on error rates when controlling for payload size, even when applying thousands of gates. This pattern holds consistently across both quantum hardware platforms, demonstrating that the minimal gate count effect is a general characteristic rather than a platform-specific behavior. 
+The experimental results at this stage corroborate our initial hypothesis (\ref{h1}). As demonstrated by the stratified analysis in Figure~\ref{fig:success_rate_gates_by_payload}, the number of single-qubit gates has only a modest impact on success rates when controlling for payload size, even when applying thousands of gates. This pattern holds consistently across both quantum hardware platforms, demonstrating that the minimal gate count effect is a general characteristic rather than a platform-specific behavior.
 
 The minimal gate count effect can be attributed to the inherently high fidelity of single-qubit operations \cite{shuklaCompleteCharacterizationDirectlya_2020}, which are highly refined in today's quantum hardware. Data supporting this section can be accessed at \url{https://github.com/xthecapx/qc_experiment/tree/main/experiment/ieee_analysis}.
 
 \subsection{Stage 3: Circuit depth experiment}
 
-While the initial stress test in stage 2 was concerned with the correlation between the overall execution of the circuit and the success rate, the subsequent stages of the experiment shift towards examining the error rate, calculated as (1 - \texttt{success\_rate}). The reason of this is related to the selected pre-runtime metrics for the following stages (i.e., circuit depth and payload size) being hypothesized to be primary sources of failure, so, a graph displaying the error rate provides a more direct and intuitive representation of their impact. In other words, a positive correlation, where an increase in circuit complexity leads to an increase in measured error, is easier to interpret and model than the corresponding inverse relationship with the success rate.
+To analyze the circuit depth, a function was developed that receives as input parameter a circuit depth value and returns as a result a list of pairs of \texttt{payload\_size} and \texttt{num\_gates} that can be used to generate a payload that combined with the required gates of vTP produces a given depth. For example, to get a depth of 13 for the vTP, the only possible combination is to use a \texttt{payload\_size} of 1 with a single gate.%, because with that setup the final depth of the vTP is 13.
 
-At this stage, the objective is to analyze the correlation between the depth of the quantum circuit and the error rate.
-
-During the course of analyzing the circuit depth, a function was developed that receives as input parameter a circuit depth value and returns as a result a list of pairs of \texttt{payload\_size} and \texttt{num\_gates} that can be used to generate a payload that combined with the required gates of vTP produces a given depth. For example, to get a depth of 13 for the vTP, the only possible combination is to use a \texttt{payload\_size} of 1 with a single gate.%, because with that setup the final depth of the vTP is 13.
-
-The function uses a simple linear model, as defined in equation \ref{eq:base_depth}, to generate the list of pairs. Since this research aims to determine the correlations with the error rates, rather than developing an optimal model for generating circuits with specific depths, the simple model serves the purpose.
+The function uses a simple linear model, as defined in equation \ref{eq:base_depth}, to generate the list of pairs. Since this research aims to determine the correlations with the success rates, rather than developing an optimal model for generating circuits with specific depths, the simple model serves the purpose.
 
 \begin{equation}
 \text{base\_depth} = 13 + 2 \times (\text{payload\_size} - 1)
@@ -197,29 +193,134 @@ Within equation~\ref{eq:target_depth_model}, the relation between the number of 
 
 Observe that equation~\ref{eq:required_gates} is capable of generating floating-point numbers; consequently, within the code, these values are cast to integers, which results in the truncation of the decimal component without the application of any rounding operations. Furthermore, it is important to acknowledge that \texttt{base\_depth} may potentially exceed \texttt{target\_depth}; therefore, the code imposes a restriction to only incorporate positive values.
 
-It is worth noting that the valid configurations were chosen exclusively when this calculation resulted in a non-negative integer for \texttt{num\_gates}. This methodology enabled the systematic generation of randomized circuits, varying in \texttt{payload\_size} and \texttt{num\_gates}, while maintaining consistent operational depth. However, it should be noted that although the calculations were executed flawlessly within the simulator, the final circuit depth was frequently diminished during execution on the quantum runtime service, attributed to the intrinsic circuit optimization processes of the IBM platform.
+It is worth noting that the valid configurations were chosen exclusively when this calculation resulted in a non-negative integer for \texttt{num\_gates}. This methodology enabled the systematic generation of randomized circuits, varying in \texttt{payload\_size} and \texttt{num\_gates}, while maintaining consistent operational depth. However, although the calculations were executed flawlessly within the simulator, the final circuit depth changed during the transpilation phase and by the intrinsic circuit optimization of the quantum processor before the execution of the algorithm.
 
-Figure \ref{fig:depth_experiment_results_main} show the error rate results for the circuit depth experiment. On the one hand, the plot above shows error rates grouped by target circuit depth, and the plot below shows error rate versus payload size, with points colored by circuit depth. These plots indicate a general trend in which increased circuit complexity (either through depth or payload size, which also influences depth) correlates with higher error rates. The R-squared values associated with linear regression in both charts ($0.22$ for Subfigure~\ref{fig:error_distribution_by_depth} and $0.648$ for Subfigure~\ref{fig:error_rate_vs_payload_colored_by_depth}) suggest a moderate positive correlation between these measures of circuit complexity and the observed error rate.
+\begin{table}[ht]
+\centering
+\caption{Success Rate Statistics for vTP on IBM Sherbrooke Across Different Circuit Depth Ranges}
+\label{tab:vtp_success_rates_depth_ibm}
+\begin{tabular}{|c|c|c|}
+    \hline
+    \textbf{Circuit Depth Range} & \textbf{Success Rate Range (\%)} & \textbf{Mean (\%)} \\
+    \hline
+    5--9 & 58.5--87.4 & 66.6 \\
+    \hline
+    10--14 & 6.6--86.5 & 40.5 \\
+    \hline
+    15--19 & 2.0--68.2 & 13.7 \\
+    \hline
+    20--24 & 2.3--69.2 & 22.3 \\
+    \hline
+    25--29 & 2.7--68.3 & 23.1 \\
+    \hline
+    30--34 & 2.1--69.1 & 24.7 \\
+    \hline
+    35--39 & 2.1--69.2 & 22.2 \\
+    \hline
+    40--44 & 2.5--69.3 & 23.7 \\
+    \hline
+\end{tabular}
+\end{table}
 
-\begin{figure}[htbp]
+\begin{table}[ht]
+\centering
+\caption{Success Rate Statistics for vTP on Rigetti Ankaa-3 Across Different Circuit Depth Ranges}
+\label{tab:vtp_success_rates_depth_rigetti}
+\begin{tabular}{|c|c|c|}
+    \hline
+    \textbf{Circuit Depth Range} & \textbf{Success Rate Range (\%)} & \textbf{Mean (\%)} \\
+    \hline
+    10--14 & 70.0--100.0 & 84.0 \\
+    \hline
+    15--19 & 10.0--90.0 & 51.3 \\
+    \hline
+    20--24 & 0.0--100.0 & 33.5 \\
+    \hline
+    25--29 & 0.0--90.0 & 30.4 \\
+    \hline
+    30--34 & 0.0--100.0 & 31.0 \\
+    \hline
+    35--39 & 0.0--90.0 & 33.0 \\
+    \hline
+    40--44 & 0.0--90.0 & 31.5 \\
+    \hline
+    45--49 & 0.0--100.0 & 32.3 \\
+    \hline
+\end{tabular}
+\end{table}
+
+Tables~\ref{tab:vtp_success_rates_depth_ibm} and~\ref{tab:vtp_success_rates_depth_rigetti} summarize the success rate statistics for vTP after executing circuits with different circuit depth ranges in IBM Sherbrooke and Rigetti Ankaa-3, respectively. The data reveal a correlation between circuit depth and success rate at lower depths: for IBM Sherbrooke, success rates drop from 66.6\% (depth 5--9) to 13. 7\% (depth 15--19), while for Rigetti Ankaa-3, the decline occurs from 84.0\% (depth 10--14) to 33. 5\% (depth 20--24).
+
+Figure~\ref{fig:circuit_depth_success_rate_analysis} presents these data through two complementary visualizations: Subfigure~\ref{fig:circuit_depth_boxplot} shows the complete dataset across all depth ranges, while Subfigure~\ref{fig:filtered_depth_correlation} provides a filtered view focusing on the lower depth ranges where the correlation is most evident. To statistically validate this observed correlation, Table~\ref{tab:depth_correlation_stats} presents comprehensive correlation statistics that include Pearson and Spearman coefficients, values $R^{2}$, and p-values that demonstrate the statistical significance of the relationship between the depth of the circuit and the success rate.
+
+\begin{figure}[ht]
     \centering
     \begin{subfigure}[b]{0.48\textwidth}
         \centering
-        \includegraphics[width=\linewidth]{error_distribution_by_circuit_depth.png}
-        \caption{Distribution of error rate grouped by circuit depth.}
-        \label{fig:error_distribution_by_depth}
+        \includegraphics[width=\linewidth]{img/3b_success_rate_vs_circuit_depth_boxplot.png}
+        \caption{Complete dataset across all depth ranges}
+        \label{fig:circuit_depth_boxplot}
     \end{subfigure}\hfill
     \begin{subfigure}[b]{0.48\textwidth}
         \centering
-        \includegraphics[width=\linewidth]{error_rate_vs_payload_size.png}
-        \caption{Error rate versus payload size, colored by circuit depth.}
-        \label{fig:error_rate_vs_payload_colored_by_depth}
+        \includegraphics[width=\linewidth]{img/3c_filtered_success_rate_correlation_circuit_depth.png}
+        \caption{Filtered view (IBM: depths 5--19, $n=171$; Rigetti: depths 10--24, $n=60$)}
+        \label{fig:filtered_depth_correlation}
     \end{subfigure}
-    \caption{Error rate analysis for the circuit depth experiment. The error rate is calculated as ($1 - success rate$). The plots show a moderate positive correlation between increased circuit complexity (both depth and payload size) and the observed error rate.}
-    \label{fig:depth_experiment_results_main}
+    \caption{Success rate correlation analysis for circuit depth experiment. (a) Box plot comparison showing all depth ranges. (b) Filtered envelope plot focusing on lower depth ranges.}
+    \label{fig:circuit_depth_success_rate_analysis}
 \end{figure}
 
-The results of stage 3 provide clear support for our second hypothesis \ref{h2}. There is a moderate positive correlation between the depth of the target circuit and the measured error rate. This behavior can be explained since the deeper circuits, which require more computational steps, are particularly susceptible to time-dependent errors, thus leading to a degradation in reliability.  Comparable findings were documented by Perez et al. in \cite{perez_antonReliabilityIBMsPublic_2025}.
+\begin{table}[ht]
+\centering
+\caption{Correlation Statistics Between Circuit Depth and Success Rate at Lower Depths}
+\label{tab:depth_correlation_stats}
+\begin{tabular}{|l|c|c|}
+    \hline
+    \textbf{Statistic} & \textbf{IBM (depths 5--19)} & \textbf{Rigetti (depths 10--24)} \\
+    \hline
+    Sample Size & 171 & 60 \\
+    \hline
+    Pearson r & -0.714 & -0.538 \\
+    \hline
+    Spearman $\rho$ & -0.761 & -0.532 \\
+    \hline
+    R² & 0.510 & 0.289 \\
+    \hline
+    Slope & -0.053 & -0.049 \\
+    \hline
+    p-value & $6.04 \times 10^{-28}$ & $9.50 \times 10^{-6}$ \\
+    \hline
+\end{tabular}
+\end{table}
+
+Table~\ref{tab:depth_correlation_stats} presents the statistical analysis of the correlation between the depth of the circuit and the success rate for the lower circuit depth ranges. The negative Pearson and Spearman correlation coefficients confirm a moderate inverse monotonic relationship, indicating that as the circuit depth increases, the success rate tends to decrease. In particular, IBM shows a stronger correlation ($r = -0.714$) compared to Rigetti ($r = -0.538$), which aligns with the visual patterns observed in Figure~\ref{fig:filtered_depth_correlation}.
+
+The p-values provide critical evidence for the statistical significance of these correlations. In hypothesis testing, the p-value represents the probability of observing the given data, or more extreme, under a specific statistical model assuming no correlation exists \cite{Wasserstein02042016_2016}. IBM's p-value of $6.04 \times 10^{-28}$ (effectively zero) indicates a strong incompatibility between the data and the null hypothesis of no correlation, suggesting that the observed negative correlation is highly unlikely under the assumption of independence. Rigetti's p-value of $9.50 \times 10^{-6}$ (0.0000095) also falls well below the conventional significance threshold of 0.05, similarly indicating incompatibility with the null hypothesis. 
+
+Statistical analysis reveals that the two platforms show significant negative correlations between circuit depth and success rate, reinforcing the conclusion that circuit depth affects performance prior to the dominant influence of payload size.
+
+Figure~\ref{fig:success_rate_depth_by_payload} presents a segmented analysis that separates the data by payload size for both platforms, confirming that payload size is more dominant than circuit depth in influencing success rates. The segmented analysis reveals that while the circuit depth shows some correlation at lower depths (as previously reported), this effect diminishes when the payload size is controlled. For instance, on IBM, circuits with 1-qubit payloads maintain relatively high success rates (\textasciitilde65\%) regardless of circuit depth, while 5-qubit payloads consistently exhibit low success rates (\textasciitilde3\%) across all experiments.
+
+\begin{figure*}[ht]
+    \centering
+    \begin{subfigure}[b]{0.48\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{img/3d_success_rate_vs_depth_by_payload_ibm.png}
+        \caption{IBM Sherbrooke}
+        \label{fig:success_rate_depth_by_payload_ibm}
+    \end{subfigure}\hfill
+    \begin{subfigure}[b]{0.48\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{img/3d_success_rate_vs_depth_by_payload_rigetti.png}
+        \caption{Rigetti Ankaa-3}
+        \label{fig:success_rate_depth_by_payload_rigetti}
+    \end{subfigure}
+    \caption{Success rate versus circuit depth segmented by payload size for IBM Sherbrooke and Rigetti Ankaa-3. Each line represents a different payload size, with shaded regions indicating standard deviation.}
+    \label{fig:success_rate_depth_by_payload}
+\end{figure*}
+
+As a conclusion for stage 3, our findings support the second hypothesis \ref{h2}. There is a moderate negative correlation between the depth of a quantum circuit and the success rate. This behavior can be explained since the deeper circuits, which require more computational steps, are particularly susceptible to time-dependent errors, thus leading to a degradation in reliability. Comparable findings were documented by Perez et al. in \cite{perez_antonReliabilityIBMsPublic_2025}.
 
 \subsection{Stage 4: Payload size experiment}
 

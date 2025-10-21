@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """
-Error Rate vs Circuit Depth Analysis
-====================================
+Success Rate vs Circuit Depth Analysis
+======================================
 
-This module creates boxplot visualizations showing error rate distributions
+This module creates boxplot visualizations showing success rate distributions
 by circuit depth for IBM and Rigetti platforms.
 
-Complement to plot 3 (same data, showing error rate instead of success rate).
+Complement to plot 3 (same data, showing success rate).
 
 Data Sources (via load_data module):
 - IBM: All CSV files from ibm/ directory
@@ -53,9 +53,9 @@ def group_circuit_depths(df, bin_size=5):
     return df
 
 
-def plot_error_rate_vs_circuit_depth_boxplot(df1, df2, bin_size=5):
+def plot_success_rate_vs_circuit_depth_boxplot(df1, df2, bin_size=5):
     """
-    Create boxplots showing error rate distributions by circuit depth.
+    Create boxplots showing success rate distributions by circuit depth.
     Style matches plots 1b with side-by-side comparison.
     
     Parameters:
@@ -77,11 +77,9 @@ def plot_error_rate_vs_circuit_depth_boxplot(df1, df2, bin_size=5):
     # Create figure
     fig, ax = plt.subplots(figsize=fig_size)
     
-    # Calculate error rate for both datasets
+    # Work directly with success rate
     df1 = df1.copy()
     df2 = df2.copy()
-    df1['error_rate'] = 1 - df1['success_rate']
-    df2['error_rate'] = 1 - df2['success_rate']
     
     # Group circuit depths into bins
     df1_grouped = group_circuit_depths(df1, bin_size)
@@ -105,8 +103,8 @@ def plot_error_rate_vs_circuit_depth_boxplot(df1, df2, bin_size=5):
         
         # Only include if at least one platform has data
         if len(ibm_subset) > 0 or len(rigetti_subset) > 0:
-            ibm_data.append(ibm_subset['error_rate'].values if len(ibm_subset) > 0 else [])
-            rigetti_data.append(rigetti_subset['error_rate'].values if len(rigetti_subset) > 0 else [])
+            ibm_data.append(ibm_subset['success_rate'].values if len(ibm_subset) > 0 else [])
+            rigetti_data.append(rigetti_subset['success_rate'].values if len(rigetti_subset) > 0 else [])
             valid_depth_groups.append(depth_group)
             print(f"Depth {depth_group}-{depth_group+bin_size-1}: IBM {len(ibm_subset)} samples, Rigetti {len(rigetti_subset)} samples")
     
@@ -144,7 +142,7 @@ def plot_error_rate_vs_circuit_depth_boxplot(df1, df2, bin_size=5):
     
     # Set axis labels (matching plot 1b)
     ax.set_xlabel('Circuit Depth', fontsize=label_size, fontweight='bold')
-    ax.set_ylabel('Error Rate', fontsize=label_size, fontweight='bold')
+    ax.set_ylabel('Success Rate', fontsize=label_size, fontweight='bold')
     
     # Set x-axis ticks and labels
     # Create labels like "5-9", "10-14", etc.
@@ -175,12 +173,12 @@ def plot_error_rate_vs_circuit_depth_boxplot(df1, df2, bin_size=5):
     return plt
 
 
-def run_error_rate_circuit_depth_analysis():
+def run_success_rate_circuit_depth_analysis():
     """
-    Main function to run the error rate vs circuit depth analysis.
+    Main function to run the success rate vs circuit depth analysis.
     """
     print("=" * 60)
-    print("ERROR RATE vs CIRCUIT DEPTH ANALYSIS")
+    print("SUCCESS RATE vs CIRCUIT DEPTH ANALYSIS")
     print("=" * 60)
     
     # Load combined datasets
@@ -190,12 +188,6 @@ def run_error_rate_circuit_depth_analysis():
         print(f"Error loading datasets: {e}")
         return
     
-    # Calculate error rates
-    df1 = df1.copy()
-    df2 = df2.copy()
-    df1['error_rate'] = 1 - df1['success_rate']
-    df2['error_rate'] = 1 - df2['success_rate']
-    
     # Print dataset statistics
     print("\n" + "=" * 40)
     print("DATASET STATISTICS")
@@ -204,28 +196,28 @@ def run_error_rate_circuit_depth_analysis():
     print(f"\nIBM Dataset:")
     print(f"  Total experiments: {len(df1)}")
     print(f"  Circuit depth range: {df1['circuit_depth'].min()} - {df1['circuit_depth'].max()}")
-    print(f"  Error rate range: {df1['error_rate'].min():.3f} - {df1['error_rate'].max():.3f}")
-    print(f"  Mean error rate: {df1['error_rate'].mean():.3f}")
+    print(f"  Success rate range: {df1['success_rate'].min():.3f} - {df1['success_rate'].max():.3f}")
+    print(f"  Mean success rate: {df1['success_rate'].mean():.3f}")
     
     print(f"\nRigetti Dataset:")
     print(f"  Total experiments: {len(df2)}")
     print(f"  Circuit depth range: {df2['circuit_depth'].min()} - {df2['circuit_depth'].max()}")
-    print(f"  Error rate range: {df2['error_rate'].min():.3f} - {df2['error_rate'].max():.3f}")
-    print(f"  Mean error rate: {df2['error_rate'].mean():.3f}")
+    print(f"  Success rate range: {df2['success_rate'].min():.3f} - {df2['success_rate'].max():.3f}")
+    print(f"  Mean success rate: {df2['success_rate'].mean():.3f}")
     
     # Generate the boxplot
     print("\n" + "=" * 40)
     print("GENERATING BOXPLOT")
     print("=" * 40)
     
-    plt_obj = plot_error_rate_vs_circuit_depth_boxplot(df1, df2, bin_size=5)
+    plt_obj = plot_success_rate_vs_circuit_depth_boxplot(df1, df2, bin_size=5)
     
     # Ensure output directory exists
     output_dir = os.path.join(os.path.dirname(__file__), OUTPUT_DIR)
     os.makedirs(output_dir, exist_ok=True)
     
     # Save the plot
-    output_file = os.path.join(output_dir, '3b_error_rate_vs_circuit_depth_boxplot.png')
+    output_file = os.path.join(output_dir, '3b_success_rate_vs_circuit_depth_boxplot.png')
     plt_obj.savefig(output_file, dpi=300, bbox_inches='tight', facecolor='white')
     
     print(f"✓ Saved: {output_file}")
@@ -236,5 +228,6 @@ def run_error_rate_circuit_depth_analysis():
 
 if __name__ == "__main__":
     # Run the analysis
-    run_error_rate_circuit_depth_analysis()
+    run_success_rate_circuit_depth_analysis()
+
 

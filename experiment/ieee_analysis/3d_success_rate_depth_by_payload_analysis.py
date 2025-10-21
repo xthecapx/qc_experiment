@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """
-Error Rate vs Circuit Depth Stratified by Payload Size
-======================================================
+Success Rate vs Circuit Depth Stratified by Payload Size
+========================================================
 
 This analysis separates circuit depth effects by payload size to show
-how depth impacts error rate within each payload category.
+how depth impacts success rate within each payload category.
 
 Similar to 2d but for circuit depth instead of gate count.
 
@@ -34,9 +34,9 @@ def bin_circuit_depth(df, bin_size=5):
     return df
 
 
-def plot_error_rate_vs_depth_by_payload(df_ibm, df_rigetti, max_depth=48, bin_size=5, min_samples=3):
+def plot_success_rate_vs_depth_by_payload(df_ibm, df_rigetti, max_depth=48, bin_size=5, min_samples=3):
     """
-    Create separate line plots for each payload size showing error rate vs circuit depth.
+    Create separate line plots for each payload size showing success rate vs circuit depth.
     Returns two separate figures for IBM and Rigetti (to be arranged in LaTeX).
     """
     # Set font sizes for IEEE format
@@ -61,13 +61,13 @@ def plot_error_rate_vs_depth_by_payload(df_ibm, df_rigetti, max_depth=48, bin_si
     
     # Filter to max depth
     df_ibm = df_ibm[df_ibm['circuit_depth'] <= max_depth].copy()
-    df_ibm['error_rate'] = (100 - df_ibm['success_rate']) / 100
+    df_ibm['success_rate_scaled'] = df_ibm['success_rate'] / 100
     df_ibm_binned = bin_circuit_depth(df_ibm, bin_size=bin_size)
     
     payload_sizes = sorted(df_ibm['payload_size'].unique())
     
     print("\n" + "=" * 80)
-    print("IBM: Error Rate vs Circuit Depth by Payload Size")
+    print("IBM: Success Rate vs Circuit Depth by Payload Size")
     print("=" * 80)
     
     for payload in payload_sizes:
@@ -81,8 +81,8 @@ def plot_error_rate_vs_depth_by_payload(df_ibm, df_rigetti, max_depth=48, bin_si
         for depth_bin in depth_bins:
             depth_subset = payload_df[payload_df['depth_bin'] == depth_bin]
             if len(depth_subset) >= min_samples:
-                depth_means.append(depth_subset['error_rate'].mean())
-                depth_stds.append(depth_subset['error_rate'].std())
+                depth_means.append(depth_subset['success_rate_scaled'].mean())
+                depth_stds.append(depth_subset['success_rate_scaled'].std())
                 depth_positions.append(depth_bin + bin_size // 2)  # Center of bin
         
         if len(depth_positions) > 0:
@@ -106,13 +106,13 @@ def plot_error_rate_vs_depth_by_payload(df_ibm, df_rigetti, max_depth=48, bin_si
             
             print(f"\nPayload {payload}:")
             print(f"  Depth range: {depth_positions.min():.0f} - {depth_positions.max():.0f}")
-            print(f"  Error rate range: {depth_means.min():.3f} - {depth_means.max():.3f}")
-            print(f"  Mean error rate: {depth_means.mean():.3f}")
+            print(f"  Success rate range: {depth_means.min():.3f} - {depth_means.max():.3f}")
+            print(f"  Mean success rate: {depth_means.mean():.3f}")
             print(f"  Number of depth bins: {len(depth_positions)}")
     
     # Style IBM figure (no title for LaTeX)
     ax_ibm.set_xlabel('Circuit Depth', fontsize=label_size, fontweight='bold')
-    ax_ibm.set_ylabel('Error Rate', fontsize=label_size, fontweight='bold')
+    ax_ibm.set_ylabel('Success Rate', fontsize=label_size, fontweight='bold')
     ax_ibm.set_xlim(0, max_depth)
     ax_ibm.set_ylim(-0.15, 1.15)
     ax_ibm.tick_params(axis='both', which='major', labelsize=tick_size)
@@ -124,13 +124,13 @@ def plot_error_rate_vs_depth_by_payload(df_ibm, df_rigetti, max_depth=48, bin_si
     
     # Filter to max depth
     df_rigetti = df_rigetti[df_rigetti['circuit_depth'] <= max_depth].copy()
-    df_rigetti['error_rate'] = (100 - df_rigetti['success_rate']) / 100
+    df_rigetti['success_rate_scaled'] = df_rigetti['success_rate'] / 100
     df_rigetti_binned = bin_circuit_depth(df_rigetti, bin_size=bin_size)
     
     payload_sizes = sorted(df_rigetti['payload_size'].unique())
     
     print("\n" + "=" * 80)
-    print("Rigetti: Error Rate vs Circuit Depth by Payload Size")
+    print("Rigetti: Success Rate vs Circuit Depth by Payload Size")
     print("=" * 80)
     
     for payload in payload_sizes:
@@ -144,8 +144,8 @@ def plot_error_rate_vs_depth_by_payload(df_ibm, df_rigetti, max_depth=48, bin_si
         for depth_bin in depth_bins:
             depth_subset = payload_df[payload_df['depth_bin'] == depth_bin]
             if len(depth_subset) >= min_samples:
-                depth_means.append(depth_subset['error_rate'].mean())
-                depth_stds.append(depth_subset['error_rate'].std())
+                depth_means.append(depth_subset['success_rate_scaled'].mean())
+                depth_stds.append(depth_subset['success_rate_scaled'].std())
                 depth_positions.append(depth_bin + bin_size // 2)  # Center of bin
         
         if len(depth_positions) > 0:
@@ -169,13 +169,13 @@ def plot_error_rate_vs_depth_by_payload(df_ibm, df_rigetti, max_depth=48, bin_si
             
             print(f"\nPayload {payload}:")
             print(f"  Depth range: {depth_positions.min():.0f} - {depth_positions.max():.0f}")
-            print(f"  Error rate range: {depth_means.min():.3f} - {depth_means.max():.3f}")
-            print(f"  Mean error rate: {depth_means.mean():.3f}")
+            print(f"  Success rate range: {depth_means.min():.3f} - {depth_means.max():.3f}")
+            print(f"  Mean success rate: {depth_means.mean():.3f}")
             print(f"  Number of depth bins: {len(depth_positions)}")
     
     # Style Rigetti figure (no title for LaTeX)
     ax_rigetti.set_xlabel('Circuit Depth', fontsize=label_size, fontweight='bold')
-    ax_rigetti.set_ylabel('Error Rate', fontsize=label_size, fontweight='bold')
+    ax_rigetti.set_ylabel('Success Rate', fontsize=label_size, fontweight='bold')
     ax_rigetti.set_xlim(0, max_depth)
     ax_rigetti.set_ylim(-0.15, 1.15)
     ax_rigetti.tick_params(axis='both', which='major', labelsize=tick_size)
@@ -191,7 +191,7 @@ def plot_error_rate_vs_depth_by_payload(df_ibm, df_rigetti, max_depth=48, bin_si
 def run_stratified_depth_analysis():
     """Main function to run the stratified depth analysis."""
     print("=" * 80)
-    print("ERROR RATE vs CIRCUIT DEPTH STRATIFIED BY PAYLOAD SIZE")
+    print("SUCCESS RATE vs CIRCUIT DEPTH STRATIFIED BY PAYLOAD SIZE")
     print("=" * 80)
     
     # Load data
@@ -206,7 +206,7 @@ def run_stratified_depth_analysis():
     df_rigetti = combined_df[combined_df['hardware'] == 'Rigetti'].copy()
     
     # Generate the stratified plots
-    fig_ibm, fig_rigetti = plot_error_rate_vs_depth_by_payload(
+    fig_ibm, fig_rigetti = plot_success_rate_vs_depth_by_payload(
         df_ibm, df_rigetti, max_depth=50, bin_size=5, min_samples=3
     )
     
@@ -215,8 +215,8 @@ def run_stratified_depth_analysis():
     os.makedirs(output_dir, exist_ok=True)
     
     # Save both figures separately
-    output_file_ibm = os.path.join(output_dir, '3d_error_rate_vs_depth_by_payload_ibm.png')
-    output_file_rigetti = os.path.join(output_dir, '3d_error_rate_vs_depth_by_payload_rigetti.png')
+    output_file_ibm = os.path.join(output_dir, '3d_success_rate_vs_depth_by_payload_ibm.png')
+    output_file_rigetti = os.path.join(output_dir, '3d_success_rate_vs_depth_by_payload_rigetti.png')
     
     fig_ibm.savefig(output_file_ibm, dpi=300, bbox_inches='tight', facecolor='white')
     fig_rigetti.savefig(output_file_rigetti, dpi=300, bbox_inches='tight', facecolor='white')
@@ -230,5 +230,6 @@ def run_stratified_depth_analysis():
 
 if __name__ == "__main__":
     run_stratified_depth_analysis()
+
 
 
