@@ -125,14 +125,50 @@ It should be noted that for this experiment, we considered the inclusion of rand
 \end{tabular}
 \end{table}
 
-Tables~\ref{tab:vtp_success_rates_ibm} and~\ref{tab:vtp_success_rates_rigetti} summarize the success rate statistics for vTP after executing circuits with different gate count ranges in IBM Sherbrooke and Rigetti Ankaa-3, respectively, while Figure~\ref{fig:random_gates_success_rate} presents the same data visually through boxplots. As can be seen, grouping the data by gate counts produces low mean success rates in both platforms; however, it should be noted that some of the jobs in each group achieve higher success rates such as 87.4\% for IBM Sherbrooke and 90.0\% for Rigetti Ankaa-3, which give us a hint to explore data with another level of grouping.
+Tables~\ref{tab:vtp_success_rates_ibm} and~\ref{tab:vtp_success_rates_rigetti} summarize the success rate statistics for vTP after executing circuits with different gate count ranges in IBM Sherbrooke and Rigetti Ankaa-3, respectively. Figure~\ref{fig:random_gates_success_rate} illustrates that while overall success rates remain low and highly variable, a declining trend is observed in gate ranges of \ensuremath{\leq} 70.
 
-\begin{figure}[ht]
+\begin{figure*}[ht]
     \centering
-    \includegraphics[width=1\linewidth]{img/2b_success_rate_vs_gates_grouped_boxplot_filtered.png}
-    \caption{Box plot comparison of vTP success rates against the number of random single-qubit gates applied to the payload, classified by quantum hardware platform. Each box shows the interquartile range with median (solid line) and mean (dashed line) for each gate count range.}
+    \begin{subfigure}[b]{0.48\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{img/2b_success_rate_vs_gates_grouped_boxplot_filtered.png}
+        \caption{All gate count ranges}
+        \label{fig:random_gates_success_rate_boxplot}
+    \end{subfigure}\hfill
+    \begin{subfigure}[b]{0.48\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{img/2b_filtered_success_rate_correlation_gates.png}
+        \caption{Filtered view (gates \ensuremath{\leq} 70)}
+        \label{fig:filtered_gates_success_rate}
+    \end{subfigure}
+    \caption{Success rate analysis with respect to number of gates. (a) Box plot comparison across all gate count ranges. (b) Filtered correlation view focusing on lower gate counts (\ensuremath{\leq} 70).}
     \label{fig:random_gates_success_rate}
-\end{figure}
+\end{figure*}
+
+\begin{table}[ht]
+\centering
+\caption{Correlation Statistics Between Number of Gates and Success Rate for Gate Counts \ensuremath{\leq} 70}
+\label{tab:gate_correlation_stats}
+\begin{tabular}{|l|c|c|}
+    \hline
+    \textbf{Statistic} & \textbf{IBM (\ensuremath{n=289})} & \textbf{Rigetti (\ensuremath{n=179})} \\
+    \hline
+    Pearson r & -0.467 & -0.558 \\
+    \hline
+    Spearman \ensuremath{\rho} & -0.554 & -0.568 \\
+    \hline
+    R\ensuremath{^{2}} & 0.218 & 0.311 \\
+    \hline
+    Slope & -0.007 & -0.009 \\
+    \hline
+    p-value & \ensuremath{6.04 \times 10^{-17}} & \ensuremath{5.09 \times 10^{-16}} \\
+    \hline
+\end{tabular}
+\end{table}
+
+Table~\ref{tab:gate_correlation_stats} provides statistical evidence for the trend suggested in Figure~\ref{fig:random_gates_success_rate}: both platforms exhibit a moderate inverse relationship between gate count and success rate in the lower gate ranges, with the effect being more pronounced for Rigetti. 
+
+Following the ASA definition, the p-value represents the probability, under a specified statistical model that assumes no correlation, of observing the given data \cite{Wasserstein02042016_2016}. In this context, the calculated p-values (\ensuremath{p < 10^{-15}} for both platforms) strongly suggest a mismatch between the observed data and the null hypothesis of zero correlation, indicate that a correlation exists.
 
 Figure~\ref{fig:success_rate_gates_by_payload} presents a segmented analysis that separates the data by payload size for both platforms. This analysis reveals that the payload size is the dominant factor that influences the success rate and, at the same time, makes clear that the gate count has only a modest effect (10 - 20\%) in the success rate within each category. For instance, on IBM, circuits with 1-qubit payloads maintain relatively high success rates (\textasciitilde50-60\%) regardless of gate count, while 5-qubit payloads consistently exhibit low success rates (\textasciitilde5\%) across all experiments.
 
@@ -154,9 +190,9 @@ Figure~\ref{fig:success_rate_gates_by_payload} presents a segmented analysis tha
     \label{fig:success_rate_gates_by_payload}
 \end{figure*}
 
-The experimental results at this stage corroborate our initial hypothesis (\ref{h1}). As demonstrated by the stratified analysis in Figure~\ref{fig:success_rate_gates_by_payload}, the number of single-qubit gates has only a modest impact on success rates when controlling for payload size, even when applying thousands of gates. This pattern holds consistently across both quantum hardware platforms, demonstrating that the minimal gate count effect is a general characteristic rather than a platform-specific behavior.
+The experimental results at this stage corroborate our initial hypothesis (\ref{h1}). The gate count analysis confirms a moderate negative correlation between gate count and success. Once payload size increases, success rates drop sharply regardless of gate count, indicating that payload size remains the dominant limiting factor even within the lower gate ranges. This pattern holds across both hardware platforms, reinforcing that the modest gate count effect remains secondary compared to the payload-size effect.
 
-The minimal gate count effect can be attributed to the inherently high fidelity of single-qubit operations \cite{shuklaCompleteCharacterizationDirectlya_2020}, which are highly refined in today's quantum hardware. Data supporting this section can be accessed at \url{https://github.com/xthecapx/qc_experiment/tree/main/experiment/ieee_analysis}.
+The moderate gate count effect can be attributed to the inherently high fidelity of single-qubit operations \cite{shuklaCompleteCharacterizationDirectlya_2020}, which display high fidelity in today's quantum hardware. Data supporting this section can be accessed at \url{https://github.com/xthecapx/qc_experiment/tree/main/experiment/ieee_analysis}.
 
 \subsection{Stage 3: Circuit depth experiment}
 
@@ -253,7 +289,7 @@ Tables~\ref{tab:vtp_success_rates_depth_ibm} and~\ref{tab:vtp_success_rates_dept
 
 Figure~\ref{fig:circuit_depth_success_rate_analysis} presents these data through two complementary visualizations: Subfigure~\ref{fig:circuit_depth_boxplot} shows the complete dataset across all depth ranges, while Subfigure~\ref{fig:filtered_depth_correlation} provides a filtered view focusing on the lower depth ranges where the correlation is most evident. To statistically validate this observed correlation, Table~\ref{tab:depth_correlation_stats} presents comprehensive correlation statistics that include Pearson and Spearman coefficients, values $R^{2}$, and p-values that demonstrate the statistical significance of the relationship between the depth of the circuit and the success rate.
 
-\begin{figure}[ht]
+\begin{figure*}[ht]
     \centering
     \begin{subfigure}[b]{0.48\textwidth}
         \centering
@@ -269,7 +305,7 @@ Figure~\ref{fig:circuit_depth_success_rate_analysis} presents these data through
     \end{subfigure}
     \caption{Success rate correlation analysis for circuit depth experiment. (a) Box plot comparison showing all depth ranges. (b) Filtered envelope plot focusing on lower depth ranges.}
     \label{fig:circuit_depth_success_rate_analysis}
-\end{figure}
+\end{figure*}
 
 \begin{table}[ht]
 \centering
@@ -296,9 +332,7 @@ Figure~\ref{fig:circuit_depth_success_rate_analysis} presents these data through
 
 Table~\ref{tab:depth_correlation_stats} presents the statistical analysis of the correlation between the depth of the circuit and the success rate for the lower circuit depth ranges. The negative Pearson and Spearman correlation coefficients confirm a moderate inverse monotonic relationship, indicating that as the circuit depth increases, the success rate tends to decrease. In particular, IBM shows a stronger correlation ($r = -0.714$) compared to Rigetti ($r = -0.538$), which aligns with the visual patterns observed in Figure~\ref{fig:filtered_depth_correlation}.
 
-The p-values provide critical evidence for the statistical significance of these correlations. In hypothesis testing, the p-value represents the probability of observing the given data, or more extreme, under a specific statistical model assuming no correlation exists \cite{Wasserstein02042016_2016}. IBM's p-value of $6.04 \times 10^{-28}$ (effectively zero) indicates a strong incompatibility between the data and the null hypothesis of no correlation, suggesting that the observed negative correlation is highly unlikely under the assumption of independence. Rigetti's p-value of $9.50 \times 10^{-6}$ (0.0000095) also falls well below the conventional significance threshold of 0.05, similarly indicating incompatibility with the null hypothesis. 
-
-Statistical analysis reveals that the two platforms show significant negative correlations between circuit depth and success rate, reinforcing the conclusion that circuit depth affects performance prior to the dominant influence of payload size.
+Similarly to gate count analysis, the corresponding p-values (\ensuremath{< 10^{-5}} for both platforms) indicate a strong incompatibility between the observed data and the null hypothesis of no correlation, supporting the interpretation that deeper circuits degrade success rate before payload size effects dominate.
 
 Figure~\ref{fig:success_rate_depth_by_payload} presents a segmented analysis that separates the data by payload size for both platforms, confirming that payload size is more dominant than circuit depth in influencing success rates. The segmented analysis reveals that while the circuit depth shows some correlation at lower depths (as previously reported), this effect diminishes when the payload size is controlled. For instance, on IBM, circuits with 1-qubit payloads maintain relatively high success rates (\textasciitilde65\%) regardless of circuit depth, while 5-qubit payloads consistently exhibit low success rates (\textasciitilde3\%) across all experiments.
 
