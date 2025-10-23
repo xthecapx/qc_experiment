@@ -19,6 +19,7 @@ Date: 2025
 
 import pandas as pd
 import matplotlib.pyplot as plt
+from matplotlib.lines import Line2D
 import numpy as np
 import os
 from scipy import stats
@@ -295,25 +296,30 @@ def plot_filtered_success_rate_correlation(df1, df2, bin_size=5):
     # Add grid
     ax.grid(True, linestyle='--', alpha=0.3, axis='both')
     
-    # Add correlation statistics as text box
+    # Create unified legend with colored lines and correlation statistics
     rigetti_p_text = '< 0.001' if rigetti_stats['pearson_p'] < 0.001 else f"= {rigetti_stats['pearson_p']:.3f}"
-    stats_text = (
-        f"IBM: r = {ibm_stats['pearson_r']:.3f}, R² = {ibm_stats['r_squared']:.3f}, p < 0.001\n"
-        f"Rigetti: r = {rigetti_stats['pearson_r']:.3f}, R² = {rigetti_stats['r_squared']:.3f}, "
-        f"p {rigetti_p_text}"
+    
+    legend_handles = [
+        Line2D([0], [0], color=COLORBREWER_PALETTE['IBM'], linewidth=2.5),
+        Line2D([0], [0], color=COLORBREWER_PALETTE['Rigetti'], linewidth=2.5),
+    ]
+    legend_labels = [
+        f"IBM — r = {ibm_stats['pearson_r']:.3f}, R² = {ibm_stats['r_squared']:.3f}, p < 0.001",
+        f"Rigetti — r = {rigetti_stats['pearson_r']:.3f}, R² = {rigetti_stats['r_squared']:.3f}, p {rigetti_p_text}",
+    ]
+    
+    ax.legend(
+        legend_handles,
+        legend_labels,
+        fontsize=legend_size - 1,
+        loc='upper center',
+        bbox_to_anchor=(0.5, 1.12),
+        frameon=True,
+        framealpha=0.95,
+        title='Correlation Statistics',
+        title_fontsize=legend_size - 1,
+        edgecolor='gray',
     )
-    
-    # Position text box in upper right (adjust if needed based on data)
-    ax.text(0.98, 0.02, stats_text,
-            transform=ax.transAxes,
-            fontsize=legend_size-2,
-            verticalalignment='bottom',
-            horizontalalignment='right',
-            bbox=dict(boxstyle='round', facecolor='white', alpha=0.9, edgecolor='gray'),
-            family='monospace')
-    
-    # Create legend
-    ax.legend(fontsize=legend_size, loc='upper right', ncol=1, framealpha=0.95)
     
     # Adjust layout
     plt.tight_layout()
