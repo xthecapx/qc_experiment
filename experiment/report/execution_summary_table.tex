@@ -1,0 +1,59 @@
+\begin{table}[ht]
+\centering
+\caption{Hardware Execution Summary for vTP Experiments}
+\label{tab:execution_summary}
+\begin{tabular}{|l|r|r|l|}
+    \hline
+    \textbf{Hardware Platform} & \textbf{Total Jobs} & \textbf{Total Shots} & \textbf{Access Method} \\
+    \hline
+    \multicolumn{4}{|l|}{\textit{IBM Sherbrooke}} \\
+    \hline
+    \quad Circuit depth experiments & 481 & 4,810 & IBM Quantum Runtime \\
+    \quad Gate count experiments & 196 & 1,960 & IBM Quantum Runtime \\
+    \textbf{IBM Subtotal} & \textbf{677} & \textbf{6,770} & \\
+    \hline
+    \multicolumn{4}{|l|}{\textit{Rigetti Ankaa-3}} \\
+    \hline
+    \quad Circuit depth experiments & 190 & 1,900 & qBraid Platform \\
+    \quad Gate count experiments & 120 & 1,200 & AWS Braket \\
+    \textbf{Rigetti Subtotal} & \textbf{310} & \textbf{3,100} & \\
+    \hline
+    \hline
+    \textbf{Grand Total} & \textbf{987} & \textbf{9,870} & \\
+    \hline
+\end{tabular}
+\end{table}
+
+% Alternative compact version
+\begin{table}[ht]
+\centering
+\caption{Summary of Quantum Hardware Executions}
+\label{tab:execution_summary_compact}
+\begin{tabular}{|l|r|r|l|}
+    \hline
+    \textbf{Platform} & \textbf{Jobs} & \textbf{Shots} & \textbf{Access Method} \\
+    \hline
+    IBM Sherbrooke & 677 & 6,770 & IBM Quantum Runtime \\
+    Rigetti Ankaa-3 & 310 & 3,100 & qBraid \& AWS Braket \\
+    \hline
+    \textbf{Total} & \textbf{987} & \textbf{9,870} & \\
+    \hline
+\end{tabular}
+\end{table}
+
+\begin{table}[H]
+    \centering
+    \caption{vTP execution summary by hardware}
+    \label{tab:vtp_execution_summary}
+    \begin{tabular}{lrrrrr}
+        \toprule
+        Hardware & Rows & Unique Jobs & Reported Shots & Computed Shots \\
+        \midrule
+        IBM & 485 & 485 & 0 & 1{,}986{,}443 \\
+        Rigetti & 226 & 225 & 2{,}250 & 2{,}260 \\
+        \bottomrule
+    \end{tabular}
+    \vspace{0.3em}
+    \footnotesize{Computed shots are derived from the measurement count dictionaries when explicit shot counts were omitted.}
+\end{table}
+

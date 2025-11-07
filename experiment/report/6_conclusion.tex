@@ -1,12 +1,12 @@
 \section{Conclusion}\label{sec:conclusions}
 
-This article addresses the critical gap between hardware-level benchmarks and circuit-specific reliability by introducing a new approach that combines a benchmarking strategy with a variation of the TP algorithm. In summary, we present a framework to evaluate a quantum circuit and establish correlations between its pre-runtime characteristics and its post-runtime outcomes.
+This article addresses the critical gap between hardware-level benchmarks and circuit-specific reliability by introducing a new framework. Combining a benchmarking strategy with a variation of the quantum teleportation protocol, our approach enables the identification of correlations between a circuit's pre-runtime characteristics and its post-runtime outcomes.
 
-Beyond experimentation, the research was supported by theoretical analysis and simulations on classical hardware, providing a robust foundation for assessing the empirical tests conducted on IBM Sherbrooke and Rigetti Ankaa-3 quantum devices.
+Beyond experimentation, the research was supported by theoretical analysis and simulations on classical hardware, providing a robust foundation for evaluating the algorithm execution performed on IBM Sherbrooke and Rigetti Ankaa-3 quantum devices.
 
-Our findings suggest that during the NIQS era, quantum algorithm design should prioritize minimizing entangled qubit operations and circuit depth, as these factors negatively impact success. At the same time, we determine that single gate operations are not a concern if limited to 10--20 operations.
+Our findings suggest that during the NIQS era, quantum algorithm design should prioritize minimizing entangled qubit operations and circuit depth, as these factors negatively impact success. At the same time, we determine that single gate operations are not a concern if limited to fewer than 40 operations.
 
-Finally, it should be noted that the major contribution of this work is the implementation of a framework to measure how pre-runtime metrics influence circuit execution success across real hardware. In other words, this research presents a systematic approach to evaluate quantum circuits where the expected quantum state is known, and at the same time provides a way to determine how much influence each of the circuit components has in the reliability of an algorithm.
+The major contribution of this work is a framework that systematically measures how pre-runtime metrics influence execution success on real quantum hardware. Specifically, it provides a method to quantify the influence that different circuit components have on overall reliability, offering developers practical, predictive insights into algorithm performance that go beyond traditional hardware-centric benchmarks.
 
 \section{Future work}\label{sec:future_work}
 
